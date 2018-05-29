@@ -98,12 +98,106 @@ static void lsm6dsl_trigger_handler(struct device *dev,
 }
 #endif
 
+#ifdef CONFIG_SPI_SLAVE
+#define BUF_SIZE 256
+u8_t buffer_rx[4][BUF_SIZE];
+
+struct spi_config spi_slave = {
+	.frequency = 16000000,
+	.operation = SPI_OP_MODE_SLAVE | //SPI_MODE_CPOL |
+	SPI_MODE_CPHA | SPI_WORD_SET(8) | SPI_LINES_SINGLE,
+	.slave = 0,
+	.cs = NULL,
+};
+
+static int spi_slave_thread_fn(void)
+{
+	int count = 0;
+	struct spi_config *spi_cfg = &spi_slave;
+	const struct spi_buf tx_bufs_null[] = {
+		{
+			.buf = NULL,
+			.len = 0,
+		},
+	};
+	const struct spi_buf_set tx = {
+		.buffers = tx_bufs_null,
+		.count = 1
+	};
+	struct spi_buf rx_bufs[] = {
+		{
+			.buf = &buffer_rx[0],
+			.len = BUF_SIZE,
+		},
+		{
+			.buf = &buffer_rx[1],
+			.len = BUF_SIZE,
+		},
+	};
+	const struct spi_buf_set rx = {
+		.buffers = rx_bufs,
+		.count = 2
+	};
+	struct device *slv;
+
+	printk("SPI slave test!!\n");
+
+	slv = device_get_binding("SPI_1");
+	if (!slv) {
+		printk("Cannot find slave SPI_1\n");
+		return -1;
+	}
+
+	for (int i = 0; i < BUF_SIZE; i++) {
+		buffer_rx[0][i] = 0x0;
+		buffer_rx[1][i] = 0x0;
+	}
+
+	while(1) {
+		int num;
+
+		if ((num = spi_transceive(slv, spi_cfg, &tx, &rx)) < 0) {
+			printk("spi_transceive error! (%d)\n", num);
+			//return -EIO;
+		}
+
+		if (num != BUF_SIZE * 2)
+			printk("num is %d\n", num);
+
+		if ((count++ % 128) == 0)
+			printk("slave: %d\n", count);
+
+		//printk("READ!: (%d) %02x %02x %02x %02x %02x\n", num,
+			//buffer_rx[0], buffer_rx[1], buffer_rx[2],buffer_rx[3],buffer_rx[10]);
+		#if 1
+			printk("READ:\n");
+			for (int i = 0; i < num; i++) {
+				printk("%02x ", buffer_rx[0][i]);
+				if ((i % 32) == 31)
+				    printk("\n");
+			}
+			printk("\n");
+		#endif
+	}
+
+	return 0;
+}
+
+#define SPI_SLAVE_STACK_SIZE 1024
+K_THREAD_STACK_DEFINE(spi_slave_stack, SPI_SLAVE_STACK_SIZE);
+
+#endif /* CONFIG_SPI_SLAVE */
+
 void main(void)
 {
 	int cnt = 0;
 	char out_str[64];
 	static struct device *led0, *led1;
 	int i, on = 1;
+#ifdef CONFIG_SPI_SLAVE
+	struct k_thread spi_slave_thread;
+	k_tid_t spi_slave_thread_id;
+#endif
 
 	led0 = device_get_binding(LED0_GPIO_CONTROLLER);
 	gpio_pin_configure(led0, LED0_GPIO_PIN, GPIO_DIR_OUT);
@@ -119,6 +213,15 @@ void main(void)
 	}
 
 	printk("ArgonKey test!!\n");
+
+#ifdef CONFIG_SPI_SLAVE
+	spi_slave_thread_id = k_thread_create(&spi_slave_thread, spi_slave_stack,
+					    SPI_SLAVE_STACK_SIZE,
+					    (k_thread_entry_t)spi_slave_thread_fn,
+					    NULL, NULL, NULL,
+					    K_PRIO_COOP(7), 0, 0);
+
+#endif
 
 #ifdef CONFIG_LPS22HB
 	struct device *baro_dev = device_get_binding(CONFIG_LPS22HB_DEV_NAME);
