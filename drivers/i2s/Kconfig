@@ -35,6 +35,76 @@ config SYS_LOG_I2S_LEVEL
 	  3 INFO, write SYS_LOG_INF in addition to previous levels
 	  4 DEBUG, write SYS_LOG_DBG in addition to previous levels
 
+config	I2S_1
+	bool "I2S port 1"
+	default n
+	help
+	  Enable I2S controller port 1.
+
+if I2S_1
+
+config I2S_1_NAME
+	string "I2S port 1 device name"
+	default "I2S_1"
+
+endif # I2S_1
+
+config	I2S_2
+	bool "I2S port 2"
+	default n
+	help
+	  Enable I2S controller port 2.
+
+if I2S_2
+
+config I2S_2_NAME
+	string "I2S port 2 device name"
+	default "I2S_2"
+
+endif # I2S_2
+
+config	I2S_3
+	bool "I2S port 3"
+	default n
+	help
+	  Enable I2S controller port 3.
+
+if I2S_3
+
+config I2S_3_NAME
+	string "I2S port 3 device name"
+	default "I2S_3"
+
+endif # I2S_3
+
+config	I2S_4
+	bool "I2S port 4"
+	default n
+	help
+	  Enable I2S controller port 4.
+
+if I2S_4
+
+config I2S_4_NAME
+	string "I2S port 4 device name"
+	default "I2S_4"
+
+endif # I2S_4
+
+config	I2S_5
+	bool "I2S port 5"
+	default n
+	help
+	  Enable I2S controller port 5.
+
+if I2S_5
+
+config I2S_5_NAME
+	string "I2S port 5 device name"
+	default "I2S_5"
+
+endif # I2S_5
+
 comment "Device Drivers"
 
 gsource "drivers/i2s/Kconfig.*"
