@@ -64,6 +64,14 @@
 	};
 };
 
+/*
+ * Currently i2s is not supported in Zephyr dts, so use
+ * SPI5 instead (controller is same)
+ */
+&spi5 {
+	status = "ok";
+};
+
 &i2c1 {
 	status = "ok";
 	clock-frequency = <I2C_BITRATE_FAST>;

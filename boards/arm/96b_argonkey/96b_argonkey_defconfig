@@ -26,6 +26,12 @@ CONFIG_SPI=y
 # enable LED
 CONFIG_LED=y
 
+# enable I2S
+CONFIG_I2S=y
+
+# enable DMA
+CONFIG_DMA=y
+
 # clock configuration
 CONFIG_CLOCK_CONTROL=y
 
