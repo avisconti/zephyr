@@ -10,6 +10,7 @@
 #include <board.h>
 #include <gpio.h>
 #include <led.h>
+#include <i2s.h>
 #include <i2c.h>
 #include <spi.h>
 #include <sensor.h>
@@ -99,6 +100,19 @@ static void lsm6dsl_trigger_handler(struct device *dev,
 }
 #endif
 
+#ifdef CONFIG_I2S
+#define NUM_RX_BLOCKS		4
+#define NUM_TX_BLOCKS		4
+#define BLOCK_SIZE		2048
+#define BLOCK_SIZE_BYTES	(BLOCK_SIZE * sizeof(s16_t))
+#define CHAN_SIZE		16
+#define AUDIO_FREQ		32000
+#define OVERSAMPLING_FACTOR	64
+
+K_MEM_SLAB_DEFINE(rx_mem_slab, BLOCK_SIZE_BYTES, NUM_RX_BLOCKS, 1);
+K_MEM_SLAB_DEFINE(tx_mem_slab, BLOCK_SIZE_BYTES, NUM_TX_BLOCKS, 1);
+#endif
+
 #define NUM_LEDS 12
 #define DELAY_TIME K_MSEC(50)
 
@@ -146,6 +160,141 @@ void main(void)
 	}
 
 	printk("ArgonKey test!!\n");
+
+#ifdef CONFIG_I2S
+	struct i2s_config i2s_cfg;
+	int a_ret;
+	struct device *adev;
+	void *rx_block;
+	size_t rx_size;
+
+#ifdef CONFIG_I2S_1
+	struct device *adev1 = device_get_binding(CONFIG_I2S_1_NAME);
+
+	if (!adev1) {
+		printk("Could not get pointer to %s sensor\n",
+			CONFIG_I2S_1_NAME);
+		return;
+	}
+#endif
+#ifdef CONFIG_I2S_4
+	struct device *adev4 = device_get_binding(CONFIG_I2S_4_NAME);
+
+	if (!adev4) {
+		printk("Could not get pointer to %s sensor\n",
+			CONFIG_I2S_4_NAME);
+		return;
+	}
+#endif
+#ifdef CONFIG_I2S_5
+	struct device *adev5 = device_get_binding(CONFIG_I2S_5_NAME);
+
+	if (!adev5) {
+		printk("Could not get pointer to %s sensor\n",
+			CONFIG_I2S_5_NAME);
+		return;
+	}
+#endif
+
+	adev = adev5;
+
+	i2s_cfg.word_size = CHAN_SIZE;
+	i2s_cfg.channels = 1;
+	i2s_cfg.format = I2S_FMT_DATA_FORMAT_LEFT_JUSTIFIED;
+	i2s_cfg.options = I2S_OPT_FRAME_CLK_MASTER | I2S_OPT_BIT_CLK_MASTER;
+	i2s_cfg.frame_clk_freq = AUDIO_FREQ * OVERSAMPLING_FACTOR / CHAN_SIZE;
+	i2s_cfg.block_size = BLOCK_SIZE * sizeof(s16_t);
+	i2s_cfg.mem_slab = &rx_mem_slab;
+	i2s_cfg.timeout = 2000;
+
+	#if 0
+	int j;
+	void *tx_block;
+	i2s_cfg.mem_slab = &tx_mem_slab;
+
+	/* TX part */
+	a_ret = i2s_configure(adev, I2S_DIR_TX, &i2s_cfg);
+	if (a_ret != 0) {
+		printk("i2s configuration failed with %d error\n", a_ret);
+		return;
+	}
+
+	for (j = 0; j < 3; j++) {
+		a_ret = k_mem_slab_alloc(&tx_mem_slab, &tx_block, K_FOREVER);
+		if (a_ret < 0) {
+			printk("Error: failed to allocate tx_block\n");
+			return ;
+		}
+
+		for (i = 0; i < BLOCK_SIZE_BYTES/2; i++)
+			((u16_t *)tx_block)[i] = (i + j) & 0xffff;
+
+		a_ret = i2s_write(adev, tx_block, BLOCK_SIZE_BYTES);
+		if (a_ret < 0) {
+			k_mem_slab_free(&tx_mem_slab, &tx_block);
+		}
+	}
+
+	/* Start transmission */
+	a_ret = i2s_trigger(adev, I2S_DIR_TX, I2S_TRIGGER_START);
+	if (a_ret != 0) {
+		printk("Start Trigger failed with %d error\n", a_ret);
+		return;
+	}
+	while(1);
+
+	while(1) {
+		a_ret = k_mem_slab_alloc(&tx_mem_slab, &tx_block, K_FOREVER);
+		if (a_ret < 0) {
+			printk("Error: failed to allocate tx_block\n");
+			return ;
+		}
+
+		for (i = 0; i < BLOCK_SIZE_BYTES; i++)
+			((u8_t *)tx_block)[i] = i & 0xff;
+
+		a_ret = i2s_write(adev, tx_block, BLOCK_SIZE_BYTES);
+		if (a_ret < 0) {
+			k_mem_slab_free(&tx_mem_slab, &tx_block);
+		}
+	}
+	#endif
+
+	/* RX part */
+	a_ret = i2s_configure(adev, I2S_DIR_RX, &i2s_cfg);
+	if (a_ret != 0) {
+		printk("i2s configuration failed with %d error\n", a_ret);
+		return;
+	}
+
+	a_ret = i2s_trigger(adev, I2S_DIR_RX, I2S_TRIGGER_START);
+	if (a_ret != 0) {
+		printk("i2s trigger failed with %d error\n", a_ret);
+		return;
+	}
+
+	while (1) {
+		a_ret = i2s_read(adev, &rx_block, &rx_size);
+		if (a_ret != 0) {
+			printk("i2s read failed with %d error\n", a_ret);
+			//break;
+			return;
+		}
+
+		printk("bsize --> %d\n", rx_size);
+		printk("%04x %04x\n", ((u16_t *)rx_block)[0], ((u16_t *)rx_block)[1]);
+		k_mem_slab_free(&rx_mem_slab, &rx_block);
+	}
+
+	{
+	    int i;
+
+	    for (i = 0; i < rx_size; i += 2)
+		printk("0x%04x,\n", ((u16_t *)rx_block)[i]);
+	}
+	printk("okkk!\n");
+	while(1);
+#endif
 
 #ifdef CONFIG_LPS22HB
 	struct device *baro_dev = device_get_binding(CONFIG_LPS22HB_DEV_NAME);
