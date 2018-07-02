@@ -52,6 +52,9 @@ config I2S_STM32_USE_PLLI2S_ENABLE
 config I2S_5
 	default y
 
+config I2S_1
+	default y
+
 endif # I2S
 
 if DMA

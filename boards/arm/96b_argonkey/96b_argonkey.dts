@@ -71,6 +71,9 @@
 &spi5 {
 	status = "ok";
 };
+&spi1 {
+	status = "ok";
+};
 
 &i2c1 {
 	status = "ok";
