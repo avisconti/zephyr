@@ -104,6 +104,11 @@ static inline int i2s_stm32_enable_clock(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_I2S_STM32_USE_PLLI2S_ENABLE
+#define PLLI2S_MAX_MS_TIME	1 /* PLLI2S lock time is 300us max */
+static u16_t plli2s_ms_count;
+#endif
+
 static inline int i2s_stm32_set_clock(struct device *dev, u32_t bit_clk_freq)
 {
 	const struct i2s_stm32_cfg *cfg = DEV_CFG(dev);
@@ -114,21 +119,46 @@ static inline int i2s_stm32_set_clock(struct device *dev, u32_t bit_clk_freq)
 	freq_in = (pll_src == LL_RCC_PLLSOURCE_HSI) ?
 		   HSI_VALUE : CONFIG_CLOCK_STM32_HSE_CLOCK;
 
-	#if 0
+#ifdef CONFIG_I2S_STM32_USE_PLLI2S_ENABLE
 	if (cfg->i2s_clk_sel == LL_RCC_I2S2_CLKSOURCE_PLLI2S) {
 		/* Set PLLI2S */
 		LL_RCC_PLLI2S_Disable();
-		LL_RCC_PLLI2S_ConfigDomain_I2S(pll_src, 10, 80, 7);
+		LL_RCC_PLLI2S_ConfigDomain_I2S(pll_src,
+					       CONFIG_I2S_STM32_PLLI2S_PLLM,
+					       CONFIG_I2S_STM32_PLLI2S_PLLN,
+					       CONFIG_I2S_STM32_PLLI2S_PLLR);
 		LL_RCC_PLLI2S_Enable();
 
-		while (!LL_RCC_PLLI2S_IsReady()) ;
-		printk("PLLI2S is locked\n");
+		/* wait until PLLI2S gets locked */
+		while (!LL_RCC_PLLI2S_IsReady()) {
+			if (plli2s_ms_count++ > PLLI2S_MAX_MS_TIME) {
+				return -EIO;
+			}
+
+			/* wait 1 ms */
+			k_sleep(1);
+		}
+		SYS_LOG_DBG("PLLI2S is locked");
+
+		/* Adjust freq_in according to PLLM, PLLN, PLLR */
+		float freq_tmp;
+
+		freq_tmp = freq_in / CONFIG_I2S_STM32_PLLI2S_PLLM;
+		freq_tmp *= CONFIG_I2S_STM32_PLLI2S_PLLN;
+		freq_tmp /= CONFIG_I2S_STM32_PLLI2S_PLLR;
+		freq_in = (int) freq_tmp;
 	}
-	#endif
+#endif /* CONFIG_I2S_STM32_USE_PLLI2S_ENABLE */
 
 	/* Select clock source */
 	LL_RCC_SetI2SClockSource(cfg->i2s_clk_sel);
 
+	/*
+	 * The ratio between input clock (I2SxClk) and output
+	 * clock on the pad (I2S_CK) is obtained using the
+	 * following formula:
+	 *   (i2s_div * 2) + i2s_odd
+	 */
 	i2s_div = div_round_closest(freq_in, bit_clk_freq);
 	i2s_odd = (i2s_div & 0x1) ? 1 : 0;
 	i2s_div >>= 1;
@@ -148,6 +178,7 @@ static int i2s_stm32_configure(struct device *dev, enum i2s_dir dir,
 	struct i2s_stm32_data *const dev_data = DEV_DATA(dev);
 	struct stream *stream;
 	u32_t bit_clk_freq;
+	int ret;
 
 	if (dir == I2S_DIR_RX) {
 		stream = &dev_data->rx;
@@ -183,7 +214,10 @@ static int i2s_stm32_configure(struct device *dev, enum i2s_dir dir,
 	bit_clk_freq = i2s_cfg->frame_clk_freq *
 		       i2s_cfg->word_size * i2s_cfg->channels;
 
-	i2s_stm32_set_clock(dev, bit_clk_freq);
+	ret = i2s_stm32_set_clock(dev, bit_clk_freq);
+	if (ret < 0) {
+		return ret;
+	}
 
 	/* set I2S Data Format */
 	if (i2s_cfg->word_size == 16) {
@@ -752,8 +786,11 @@ static const struct i2s_stm32_cfg i2s_stm32_config_1 = {
 		.enr = LL_APB2_GRP1_PERIPH_SPI1,
 		.bus = STM32_CLOCK_BUS_APB2,
 	},
-	// .i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLI2S,
+#ifdef CONFIG_I2S_STM32_USE_PLLI2S_ENABLE
+	.i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLI2S,
+#else
 	.i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLSRC,
+#endif
 	.irq_config = i2s_stm32_irq_config_func_1,
 };
 
@@ -824,7 +861,11 @@ static const struct i2s_stm32_cfg i2s_stm32_config_2 = {
 		.enr = LL_APB1_GRP1_PERIPH_SPI2,
 		.bus = STM32_CLOCK_BUS_APB1,
 	},
-	.i2s_clk_sel = LL_RCC_I2S1_CLKSOURCE_PLLSRC,
+#ifdef CONFIG_I2S_STM32_USE_PLLI2S_ENABLE
+	.i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLI2S,
+#else
+	.i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLSRC,
+#endif
 	.irq_config = i2s_stm32_irq_config_func_2,
 };
 
@@ -895,7 +936,11 @@ static const struct i2s_stm32_cfg i2s_stm32_config_3 = {
 		.enr = LL_APB1_GRP1_PERIPH_SPI3,
 		.bus = STM32_CLOCK_BUS_APB1,
 	},
-	.i2s_clk_sel = LL_RCC_I2S1_CLKSOURCE_PLLSRC,
+#ifdef CONFIG_I2S_STM32_USE_PLLI2S_ENABLE
+	.i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLI2S,
+#else
+	.i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLSRC,
+#endif
 	.irq_config = i2s_stm32_irq_config_func_3,
 };
 
@@ -966,8 +1011,11 @@ static const struct i2s_stm32_cfg i2s_stm32_config_4 = {
 		.enr = LL_APB2_GRP1_PERIPH_SPI4,
 		.bus = STM32_CLOCK_BUS_APB2,
 	},
-	// .i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLI2S,
+#ifdef CONFIG_I2S_STM32_USE_PLLI2S_ENABLE
+	.i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLI2S,
+#else
 	.i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLSRC,
+#endif
 	.irq_config = i2s_stm32_irq_config_func_4,
 };
 
@@ -1038,8 +1086,11 @@ static const struct i2s_stm32_cfg i2s_stm32_config_5 = {
 		.enr = LL_APB2_GRP1_PERIPH_SPI5,
 		.bus = STM32_CLOCK_BUS_APB2,
 	},
-	// .i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLI2S,
+#ifdef CONFIG_I2S_STM32_USE_PLLI2S_ENABLE
+	.i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLI2S,
+#else
 	.i2s_clk_sel = LL_RCC_I2S2_CLKSOURCE_PLLSRC,
+#endif
 	.irq_config = i2s_stm32_irq_config_func_5,
 };
 
