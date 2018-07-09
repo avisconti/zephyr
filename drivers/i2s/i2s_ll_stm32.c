@@ -221,14 +221,7 @@ static int i2s_stm32_configure(struct device *dev, enum i2s_dir dir,
 
 	/* set I2S Data Format */
 	if (i2s_cfg->word_size == 16) {
-		if (i2s_cfg->channels == 1) {
-			LL_I2S_SetDataFormat(cfg->i2s, LL_I2S_DATAFORMAT_16B);
-		} else if (i2s_cfg->channels == 2) {
-			LL_I2S_SetDataFormat(cfg->i2s, LL_I2S_DATAFORMAT_32B);
-		} else {
-			SYS_LOG_ERR("invalid number of channels");
-			return -EINVAL;
-		}
+		LL_I2S_SetDataFormat(cfg->i2s, LL_I2S_DATAFORMAT_16B);
 	} else if (i2s_cfg->word_size == 24) {
 		LL_I2S_SetDataFormat(cfg->i2s, LL_I2S_DATAFORMAT_24B);
 	} else if (i2s_cfg->word_size == 32) {
