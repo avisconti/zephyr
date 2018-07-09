@@ -45,6 +45,10 @@ if I2S
 config I2S_STM32
 	default y
 
+# use PLLI2S with default PLLM/PLLN/PLLR values
+config I2S_STM32_USE_PLLI2S_ENABLE
+	default y
+
 config I2S_5
 	default y
 
