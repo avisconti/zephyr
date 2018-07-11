@@ -15,6 +15,10 @@
 #include <spi.h>
 #include <sensor.h>
 
+#ifdef CONFIG_I2S
+#include "OpenPDMFilter.h"
+#endif
+
 /* #define ARGONKEY_TEST_LOG 1 */
 
 #define WHOAMI_REG      0x0F
@@ -101,16 +105,19 @@ static void lsm6dsl_trigger_handler(struct device *dev,
 #endif
 
 #ifdef CONFIG_I2S
-#define NUM_RX_BLOCKS		4
-#define NUM_TX_BLOCKS		4
-#define BLOCK_SIZE		2048
-#define BLOCK_SIZE_BYTES	(BLOCK_SIZE * sizeof(s16_t))
-#define CHAN_SIZE		16
 #define AUDIO_FREQ		32000
 #define OVERSAMPLING_FACTOR	64
+#define CHAN_SIZE		16
+#define NUM_RX_BLOCKS		4
+#define NUM_TX_BLOCKS		4
+#define BLOCK_SIZE		(AUDIO_FREQ/1000)*OVERSAMPLING_FACTOR/CHAN_SIZE
+#define BLOCK_SIZE_BYTES	(BLOCK_SIZE * sizeof(s16_t))
 
 K_MEM_SLAB_DEFINE(rx_mem_slab, BLOCK_SIZE_BYTES, NUM_RX_BLOCKS, 1);
 K_MEM_SLAB_DEFINE(tx_mem_slab, BLOCK_SIZE_BYTES, NUM_TX_BLOCKS, 1);
+
+#define NUM_MS		3000
+u16_t pcm_out[32*NUM_MS];
 #endif
 
 #define NUM_LEDS 12
@@ -260,6 +267,23 @@ void main(void)
 	}
 	#endif
 
+	/* init the filter lib */
+	TPDMFilter_InitStruct filter_init;
+
+	filter_init.LP_HZ = AUDIO_FREQ / 2;
+	filter_init.HP_HZ = 10;
+	filter_init.Fs = AUDIO_FREQ;
+	filter_init.Out_MicChannels = 1;
+	filter_init.In_MicChannels = 1;
+	filter_init.Decimation = OVERSAMPLING_FACTOR;
+
+	Open_PDM_Filter_Init(&filter_init);
+
+	u32_t ms_count;
+
+	for (i = 0; i < 32*NUM_MS; i++)
+		pcm_out[i] = 0x0;
+
 	/* RX part */
 	a_ret = i2s_configure(adev, I2S_DIR_RX, &i2s_cfg);
 	if (a_ret != 0) {
@@ -273,6 +297,7 @@ void main(void)
 		return;
 	}
 
+	ms_count = 0;
 	while (1) {
 		a_ret = i2s_read(adev, &rx_block, &rx_size);
 		if (a_ret != 0) {
@@ -281,11 +306,22 @@ void main(void)
 			return;
 		}
 
-		printk("bsize --> %d\n", rx_size);
-		printk("%04x %04x\n", ((u16_t *)rx_block)[0], ((u16_t *)rx_block)[1]);
+		Open_PDM_Filter_64((u8_t *) rx_block, pcm_out + 32*ms_count, 64, &filter_init);
 		k_mem_slab_free(&rx_mem_slab, &rx_block);
+
+		if (ms_count++ >= NUM_MS)
+			break;
 	}
 
+	/* print PCM stream */
+	printk("--\n");
+	for (i = 0; i < 32*NUM_MS; i++)
+		printk("0x%04x,\n", pcm_out[i]);
+
+	printk("okkk!\n");
+	while(1);
+
+	/* print PDM stream */
 	{
 	    int i;
 
