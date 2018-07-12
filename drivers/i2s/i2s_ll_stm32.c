@@ -249,6 +249,10 @@ static int i2s_stm32_configure(struct device *dev, enum i2s_dir dir,
 		LL_I2S_SetStandard(cfg->i2s, LL_I2S_STANDARD_MSB);
 		break;
 
+	case I2S_FMT_DATA_FORMAT_RIGHT_JUSTIFIED:
+		LL_I2S_SetStandard(cfg->i2s, LL_I2S_STANDARD_LSB);
+		break;
+
 	default:
 		SYS_LOG_ERR("Unsupported I2S data format");
 		return -EINVAL;
