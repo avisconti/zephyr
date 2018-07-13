@@ -207,7 +207,7 @@ void main(void)
 
 	i2s_cfg.word_size = CHAN_SIZE;
 	i2s_cfg.channels = 1;
-	i2s_cfg.format = I2S_FMT_DATA_FORMAT_LEFT_JUSTIFIED;
+	i2s_cfg.format = I2S_FMT_DATA_FORMAT_LEFT_JUSTIFIED | I2S_FMT_BIT_CLK_INV;
 	i2s_cfg.options = I2S_OPT_FRAME_CLK_MASTER | I2S_OPT_BIT_CLK_MASTER;
 	i2s_cfg.frame_clk_freq = AUDIO_FREQ * OVERSAMPLING_FACTOR / CHAN_SIZE;
 	i2s_cfg.block_size = BLOCK_SIZE * sizeof(s16_t);
