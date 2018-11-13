@@ -1,0 +1,25 @@
+#
+# Copyright (c) 2018 STMicroelectronics
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+---
+title: ST Microelectronics ST_DMIC_I2S pdm microphone
+version: 0.1
+
+description: >
+    This binding gives a base representation of ST_DMIC_I2S pdm microphone
+
+inherits:
+    !include i2s-device.yaml
+
+properties:
+    compatible:
+      constraint: "st,st-dmic-i2s"
+    label:
+      type: string
+      category: required
+      description: Human readable string describing the device (used by Zephyr for API name)
+      generation: define
+
+...
