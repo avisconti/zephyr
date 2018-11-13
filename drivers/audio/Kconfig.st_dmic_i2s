@@ -1,0 +1,13 @@
+#
+# Copyright (c) 2018 STMicroelectronics
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+menuconfig AUDIO_ST_DMIC_I2S
+	bool "ST Digital PDM microphone attached to I2S support"
+	depends on AUDIO_DMIC
+	depends on I2S
+	select HAS_STLIB
+	help
+	  Enable ST_DMIC_I2S microphone support on the selected board
