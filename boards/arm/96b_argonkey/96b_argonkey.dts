@@ -70,6 +70,12 @@
 
 &i2s5 {
 	status = "ok";
+
+	st-dmic-i2s@0 {
+		compatible = "st,st-dmic-i2s";
+		reg = <0>;
+		label = "MP34DT05";
+	};
 };
 
 &i2c1 {
