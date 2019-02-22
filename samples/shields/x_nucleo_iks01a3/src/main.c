@@ -153,6 +153,24 @@ static void lsm6dso_config(struct device *lsm6dso)
 		return;
 	}
 
+#ifdef CONFIG_LSM6DSO_SENSORHUB
+	/* set LSM6DSO external magn sampling frequency to 100 Hz */
+	odr_attr.val1 = 100;
+	odr_attr.val2 = 0;
+
+	if (sensor_attr_set(lsm6dso, SENSOR_CHAN_MAGN_XYZ,
+			    SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr) < 0) {
+		printk("Cannot set sampling frequency for LSM6DSO ext magn\n");
+		return;
+	}
+
+	if (sensor_attr_set(lsm6dso, SENSOR_CHAN_PRESS,
+			    SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr) < 0) {
+		printk("Cannot set sampling frequency for LSM6DSO ext magn\n");
+		return;
+	}
+#endif
+
 #ifdef CONFIG_LSM6DSO_TRIGGER
 	struct sensor_trigger trig;
 
