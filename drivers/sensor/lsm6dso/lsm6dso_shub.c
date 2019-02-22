@@ -58,6 +58,7 @@ static int lsm6dso_shub_write_slave_reg(struct lsm6dso_data *data,
 static int lsm6dso_shub_read_slave_reg(struct lsm6dso_data *data,
 				       u8_t slv_addr, u8_t slv_reg,
 				       u8_t *value, u16_t len);
+static void lsm6dso_shub_enable(struct lsm6dso_data *data, u8_t enable);
 
 /*
  * LIS2MDL magn device specific part
@@ -91,6 +92,48 @@ static int lsm6dso_lis2mdl_init(struct lsm6dso_data *data, u8_t i2c_addr)
 	mag_cfg[1] = LIS2MDL_OFF_CANC;
 	lsm6dso_shub_write_slave_reg(data, i2c_addr,
 				     LIS2MDL_CFG_REG_A, mag_cfg, 2);
+
+	return 0;
+}
+
+static const u16_t lis2mdl_map[] = {10, 20, 50, 100};
+
+static int lsm6dso_lis2mdl_odr_set(struct lsm6dso_data *data,
+				   u8_t i2c_addr, u16_t freq)
+{
+	u8_t odr, cfg;
+
+	for (odr = 0; odr < ARRAY_SIZE(lis2mdl_map); odr++) {
+		if (freq == lis2mdl_map[odr]) {
+			break;
+		}
+	}
+
+	if (odr == ARRAY_SIZE(lis2mdl_map)) {
+		LOG_DBG("shub: LIS2MDL freq val %d not supported.", freq);
+		return -ENOTSUP;
+	}
+
+	cfg = (odr << 2);
+	lsm6dso_shub_write_slave_reg(data, i2c_addr,
+				     LIS2MDL_CFG_REG_A, &cfg, 1);
+
+	lsm6dso_shub_enable(data, 1);
+	return 0;
+}
+
+static int lsm6dso_lis2mdl_conf(struct lsm6dso_data *data, u8_t i2c_addr,
+				enum sensor_channel chan,
+				enum sensor_attribute attr,
+				const struct sensor_value *val)
+{
+	switch (attr) {
+	case SENSOR_ATTR_SAMPLING_FREQUENCY:
+		return lsm6dso_lis2mdl_odr_set(data, i2c_addr, val->val1);
+	default:
+		LOG_DBG("shub: LIS2MDL attribute not supported.");
+		return -ENOTSUP;
+	}
 
 	return 0;
 }
@@ -157,8 +200,51 @@ static int lsm6dso_lps22hh_init(struct lsm6dso_data *data, u8_t i2c_addr)
 	return 0;
 }
 
+static const u16_t lps22hh_map[] = {0, 1, 10, 25, 50, 75, 100, 200};
+
+static int lsm6dso_lps22hh_odr_set(struct lsm6dso_data *data,
+				   u8_t i2c_addr, u16_t freq)
+{
+	u8_t odr, cfg;
+
+	for (odr = 0; odr < ARRAY_SIZE(lps22hh_map); odr++) {
+		if (freq == lps22hh_map[odr]) {
+			break;
+		}
+	}
+
+	if (odr == ARRAY_SIZE(lps22hh_map)) {
+		LOG_DBG("shub: LPS22HH freq val %d not supported.", freq);
+		return -ENOTSUP;
+	}
+
+	cfg = (odr << 4) | LPS22HH_LPF_EN | LPS22HH_BDU_EN;
+	lsm6dso_shub_write_slave_reg(data, i2c_addr,
+				     LPS22HH_CTRL_REG1, &cfg, 1);
+
+	lsm6dso_shub_enable(data, 1);
+	return 0;
+}
+
+static int lsm6dso_lps22hh_conf(struct lsm6dso_data *data, u8_t i2c_addr,
+				enum sensor_channel chan,
+				enum sensor_attribute attr,
+				const struct sensor_value *val)
+{
+	switch (attr) {
+	case SENSOR_ATTR_SAMPLING_FREQUENCY:
+		return lsm6dso_lps22hh_odr_set(data, i2c_addr, val->val1);
+	default:
+		LOG_DBG("shub: LPS22HH attribute not supported.");
+		return -ENOTSUP;
+	}
+
+	return 0;
+}
+
+
 /* List of supported external sensors */
-static struct lsm6dso_shub_sens_list {
+static struct lsm6dso_shub_slist {
 	enum sensor_channel type;
 	u8_t i2c_addr[2];
 	u8_t ext_i2c_addr;
@@ -168,7 +254,10 @@ static struct lsm6dso_shub_sens_list {
 	u8_t out_data_len;
 	u8_t sh_out_reg;
 	int (*dev_init)(struct lsm6dso_data *data, u8_t i2c_addr);
-} lsm6dso_shub_sens_list[] = {
+	int (*dev_conf)(struct lsm6dso_data *data, u8_t i2c_addr,
+			enum sensor_channel chan, enum sensor_attribute attr,
+			const struct sensor_value *val);
+} lsm6dso_shub_slist[] = {
 	{
 		/* LIS2MDL */
 		.type		= SENSOR_CHAN_MAGN_XYZ,
@@ -178,6 +267,7 @@ static struct lsm6dso_shub_sens_list {
 		.out_data_addr  = 0x68,
 		.out_data_len   = 0x06,
 		.dev_init       = (lsm6dso_lis2mdl_init),
+		.dev_conf       = (lsm6dso_lis2mdl_conf),
 	},
 	{
 		/* LPS22HB */
@@ -198,6 +288,7 @@ static struct lsm6dso_shub_sens_list {
 		.out_data_addr  = 0x28,
 		.out_data_len   = 0x05,
 		.dev_init       = (lsm6dso_lps22hh_init),
+		.dev_conf       = (lsm6dso_lps22hh_conf),
 	},
 };
 
@@ -407,11 +498,11 @@ static int lsm6dso_shub_write_slave_reg(struct lsm6dso_data *data,
 static int lsm6dso_shub_set_data_channel(struct lsm6dso_data *data)
 {
 	u8_t n, i, slv_cfg[6];
-	struct lsm6dso_shub_sens_list *sp;
+	struct lsm6dso_shub_slist *sp;
 
 	/* Set data channel for slave devices */
 	for (n = 0; n < num_ext_dev; n++) {
-		sp = &lsm6dso_shub_sens_list[shub_ext[n]];
+		sp = &lsm6dso_shub_slist[shub_ext[n]];
 
 		i = n * 3;
 		slv_cfg[i] = (sp->ext_i2c_addr << 1) | LSM6DSO_SHUB_SLVX_READ;
@@ -441,17 +532,32 @@ static int lsm6dso_shub_set_data_channel(struct lsm6dso_data *data)
 	return 0;
 }
 
+int lsm6dso_shub_get_idx(enum sensor_channel type)
+{
+	u8_t n;
+	struct lsm6dso_shub_slist *sp;
+
+	for (n = 0; n < num_ext_dev; n++) {
+		sp = &lsm6dso_shub_slist[shub_ext[n]];
+
+		if (sp->type == type)
+			return n;
+	}
+
+	return -ENOTSUP;
+}
+
 int lsm6dso_shub_fetch_external_devs(struct device *dev)
 {
 	u8_t n;
 	struct lsm6dso_data *data = dev->driver_data;
-	struct lsm6dso_shub_sens_list *sp;
+	struct lsm6dso_shub_slist *sp;
 
 	/* read data from external slave */
 	lsm6dso_shub_embedded_en(data, true);
 
 	for (n = 0; n < num_ext_dev; n++) {
-		sp = &lsm6dso_shub_sens_list[shub_ext[n]];
+		sp = &lsm6dso_shub_slist[shub_ext[n]];
 
 		if (data->hw_tf->read_data(data, sp->sh_out_reg,
 			data->ext_data[n], sp->out_data_len) < 0) {
@@ -465,19 +571,47 @@ int lsm6dso_shub_fetch_external_devs(struct device *dev)
 	return 0;
 }
 
+int lsm6dso_shub_config(struct device *dev, enum sensor_channel chan,
+			enum sensor_attribute attr,
+			const struct sensor_value *val)
+{
+	struct lsm6dso_data *data = dev->driver_data;
+	struct lsm6dso_shub_slist *sp = NULL;
+	u8_t n;
+
+	for (n = 0; n < num_ext_dev; n++) {
+		sp = &lsm6dso_shub_slist[shub_ext[n]];
+
+		if (sp->type == chan)
+			break;
+	}
+
+	if (n == num_ext_dev) {
+		LOG_DBG("shub: chan not supported");
+		return -ENOTSUP;
+	}
+
+	if (sp == NULL || sp->dev_conf == NULL) {
+		LOG_DBG("shub: chan not configurable");
+		return -ENOTSUP;
+	}
+
+	return sp->dev_conf(data, sp->ext_i2c_addr, chan, attr, val);
+}
+
 int lsm6dso_shub_init(struct device *dev)
 {
 	struct lsm6dso_data *data = dev->driver_data;
 	u8_t i, n = 0, regn;
 	u8_t chip_id;
-	struct lsm6dso_shub_sens_list *sp;
+	struct lsm6dso_shub_slist *sp;
 
-	for (n = 0; n < ARRAY_SIZE(lsm6dso_shub_sens_list); n++) {
+	for (n = 0; n < ARRAY_SIZE(lsm6dso_shub_slist); n++) {
 		if (num_ext_dev >= LSM6DSO_SHUB_MAX_NUM_SLVS)
 			break;
 
 		chip_id = 0;
-		sp = &lsm6dso_shub_sens_list[n];
+		sp = &lsm6dso_shub_slist[n];
 
 		/*
 		 * The external sensor may have different I2C address.
@@ -514,7 +648,7 @@ int lsm6dso_shub_init(struct device *dev)
 
 	/* init external devices */
 	for (n = 0, regn = 0; n < num_ext_dev; n++) {
-		sp = &lsm6dso_shub_sens_list[shub_ext[n]];
+		sp = &lsm6dso_shub_slist[shub_ext[n]];
 		sp->sh_out_reg = LSM6DSO_SHUB_DATA_OUT + regn;
 		regn += sp->out_data_len;
 		sp->dev_init(data, sp->ext_i2c_addr);
@@ -523,19 +657,4 @@ int lsm6dso_shub_init(struct device *dev)
 	lsm6dso_shub_set_data_channel(data);
 
 	return 0;
-}
-
-int lsm6dso_shub_get_idx(enum sensor_channel type)
-{
-	u8_t n;
-	struct lsm6dso_shub_sens_list *sp;
-
-	for (n = 0; n < num_ext_dev; n++) {
-		sp = &lsm6dso_shub_sens_list[shub_ext[n]];
-
-		if (sp->type == type)
-			return n;
-	}
-
-	return -ENOTSUP;
 }

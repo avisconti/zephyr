@@ -301,6 +301,11 @@ static int lsm6dso_attr_set(struct device *dev, enum sensor_channel chan,
 		return lsm6dso_accel_config(dev, chan, attr, val);
 	case SENSOR_CHAN_GYRO_XYZ:
 		return lsm6dso_gyro_config(dev, chan, attr, val);
+#if defined(CONFIG_LSM6DSO_SENSORHUB)
+	case SENSOR_CHAN_MAGN_XYZ:
+	case SENSOR_CHAN_PRESS:
+		return lsm6dso_shub_config(dev, chan, attr, val);
+#endif /* CONFIG_LSM6DSO_SENSORHUB */
 	default:
 		LOG_WRN("attr_set() not supported on this channel.");
 		return -ENOTSUP;

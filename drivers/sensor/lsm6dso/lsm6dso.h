@@ -540,6 +540,9 @@ int lsm6dso_i2c_init(struct device *dev);
 int lsm6dso_shub_init(struct device *dev);
 int lsm6dso_shub_fetch_external_devs(struct device *dev);
 int lsm6dso_shub_get_idx(enum sensor_channel type);
+int lsm6dso_shub_config(struct device *dev, enum sensor_channel chan,
+			enum sensor_attribute attr,
+			const struct sensor_value *val);
 #endif /* CONFIG_LSM6DSO_SENSORHUB */
 
 #ifdef CONFIG_LSM6DSO_TRIGGER
