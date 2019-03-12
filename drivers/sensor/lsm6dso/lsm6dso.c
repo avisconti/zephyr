@@ -304,6 +304,7 @@ static int lsm6dso_attr_set(struct device *dev, enum sensor_channel chan,
 #if defined(CONFIG_LSM6DSO_SENSORHUB)
 	case SENSOR_CHAN_MAGN_XYZ:
 	case SENSOR_CHAN_PRESS:
+	case SENSOR_CHAN_HUMIDITY:
 		return lsm6dso_shub_config(dev, chan, attr, val);
 #endif /* CONFIG_LSM6DSO_SENSORHUB */
 	default:
@@ -585,6 +586,32 @@ static inline int lsm6dso_magn_get_channel(enum sensor_channel chan,
 	return 0;
 }
 
+static inline void lsm6dso_hum_convert(struct sensor_value *val,
+				       struct lsm6dso_data *data)
+{
+	float rh;
+	s16_t raw_val;
+	struct hts221_data *ht = &data->hts221;
+	int idx;
+
+	idx = lsm6dso_shub_get_idx(SENSOR_CHAN_HUMIDITY);
+	if (idx < 0) {
+		LOG_DBG("external press/temp not supported");
+		return;
+	}
+
+	raw_val = sys_le16_to_cpu((s16_t)(data->ext_data[idx][0] |
+					  (data->ext_data[idx][1] << 8)));
+
+	/* find relative humidty by linear interpolation */
+	rh = (ht->y1 - ht->y0) * raw_val + ht->x1 * ht->y0 - ht->x0 * ht->y1;
+	rh /= (ht->x1 - ht->x0);
+
+	/* convert humidity to integer and fractional part */
+	val->val1 = rh;
+	val->val2 = rh * 1000000;
+}
+
 static inline void lsm6dso_press_convert(struct sensor_value *val,
 					 struct lsm6dso_data *data)
 {
@@ -659,6 +686,10 @@ static int lsm6dso_channel_get(struct device *dev,
 	case SENSOR_CHAN_MAGN_Z:
 	case SENSOR_CHAN_MAGN_XYZ:
 		lsm6dso_magn_get_channel(chan, val, data);
+		break;
+
+	case SENSOR_CHAN_HUMIDITY:
+		lsm6dso_hum_convert(val, data);
 		break;
 
 	case SENSOR_CHAN_PRESS:

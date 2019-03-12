@@ -504,6 +504,13 @@ struct lsm6dso_data {
 #if defined(CONFIG_LSM6DSO_SENSORHUB)
 	u8_t ext_data[2][6];
 	float magn_gain;
+
+	struct hts221_data {
+		s16_t x0;
+		s16_t x1;
+		s16_t y0;
+		s16_t y1;
+	} hts221;
 #endif /* CONFIG_LSM6DSO_SENSORHUB */
 
 	const struct lsm6dso_tf *hw_tf;
