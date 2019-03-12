@@ -10,6 +10,7 @@
 
 #include <device.h>
 #include <i2c.h>
+#include <misc/byteorder.h>
 #include <misc/__assert.h>
 #include <misc/util.h>
 #include <kernel.h>
@@ -63,6 +64,8 @@ static void lsm6dso_shub_enable(struct lsm6dso_data *data, u8_t enable);
 /*
  * LIS2MDL magn device specific part
  */
+#ifdef CONFIG_LSM6DSO_EXT_LIS2MDL
+
 #define LIS2MDL_CFG_REG_A		0x60
 #define LIS2MDL_CFG_REG_B		0x61
 #define LIS2MDL_CFG_REG_C		0x62
@@ -137,10 +140,108 @@ static int lsm6dso_lis2mdl_conf(struct lsm6dso_data *data, u8_t i2c_addr,
 
 	return 0;
 }
+#endif /* CONFIG_LSM6DSO_EXT_LIS2MDL */
+
+/*
+ * HTS221 humidity device specific part
+ */
+#ifdef CONFIG_LSM6DSO_EXT_HTS221
+
+#define HTS221_AUTOINCREMENT		BIT(7)
+
+#define HTS221_REG_CTRL1		0x20
+#define HTS221_ODR_1HZ			0x01
+#define HTS221_BDU			0x04
+#define HTS221_PD			0x80
+
+#define HTS221_REG_CONV_START		0x30
+
+static int lsmdso_hts221_read_conv_data(struct lsm6dso_data *data,
+					u8_t i2c_addr)
+{
+	u8_t buf[16], i;
+	struct hts221_data *ht = &data->hts221;
+
+	for (i = 0; i < sizeof(buf); i += 7) {
+		unsigned char len = MIN(7, sizeof(buf) - i);
+
+		if (lsm6dso_shub_read_slave_reg(data, i2c_addr,
+						(HTS221_REG_CONV_START + i) |
+						HTS221_AUTOINCREMENT,
+						&buf[i], len) < 0) {
+			LOG_DBG("shub: failed to read hts221 conv data");
+			return -EIO;
+		}
+	}
+
+	ht->y0 = buf[0] / 2;
+	ht->y1 = buf[1] / 2;
+	ht->x0 = sys_le16_to_cpu(buf[6] | (buf[7] << 8));
+	ht->x1 = sys_le16_to_cpu(buf[10] | (buf[11] << 8));
+
+	return 0;
+}
+
+static int lsm6dso_hts221_init(struct lsm6dso_data *data, u8_t i2c_addr)
+{
+	u8_t hum_cfg;
+
+	/* configure ODR and BDU */
+	hum_cfg = HTS221_ODR_1HZ | HTS221_BDU | HTS221_PD;
+	lsm6dso_shub_write_slave_reg(data, i2c_addr,
+				     HTS221_REG_CTRL1, &hum_cfg, 1);
+
+	return lsmdso_hts221_read_conv_data(data, i2c_addr);
+}
+
+static const u16_t hts221_map[] = {0, 1, 7, 12};
+
+static int lsm6dso_hts221_odr_set(struct lsm6dso_data *data,
+				   u8_t i2c_addr, u16_t freq)
+{
+	u8_t odr, cfg;
+
+	for (odr = 0; odr < ARRAY_SIZE(hts221_map); odr++) {
+		if (freq == hts221_map[odr]) {
+			break;
+		}
+	}
+
+	if (odr == ARRAY_SIZE(hts221_map)) {
+		LOG_DBG("shub: HTS221 freq val %d not supported.", freq);
+		return -ENOTSUP;
+	}
+
+	cfg = odr | HTS221_BDU | HTS221_PD;
+	lsm6dso_shub_write_slave_reg(data, i2c_addr,
+				     HTS221_REG_CTRL1, &cfg, 1);
+
+	lsm6dso_shub_enable(data, 1);
+	return 0;
+}
+
+static int lsm6dso_hts221_conf(struct lsm6dso_data *data, u8_t i2c_addr,
+				enum sensor_channel chan,
+				enum sensor_attribute attr,
+				const struct sensor_value *val)
+{
+	switch (attr) {
+	case SENSOR_ATTR_SAMPLING_FREQUENCY:
+		return lsm6dso_hts221_odr_set(data, i2c_addr, val->val1);
+	default:
+		LOG_DBG("shub: HTS221 attribute not supported.");
+		return -ENOTSUP;
+	}
+
+	return 0;
+}
+#endif /* CONFIG_LSM6DSO_EXT_HTS221 */
 
 /*
  * LPS22HB baro/temp device specific part
  */
+#ifdef CONFIG_LSM6DSO_EXT_LPS22HB
+
 #define LPS22HB_CTRL_REG1		0x10
 #define LPS22HB_CTRL_REG2		0x11
 
@@ -167,6 +268,12 @@ static int lsm6dso_lps22hb_init(struct lsm6dso_data *data, u8_t i2c_addr)
 
 	return 0;
 }
+#endif /* CONFIG_LSM6DSO_EXT_LPS22HB */
+
+/*
+ * LPS22HH baro/temp device specific part
+ */
+#ifdef CONFIG_LSM6DSO_EXT_LPS22HH
 
 #define LPS22HH_CTRL_REG1		0x10
 #define LPS22HH_CTRL_REG2		0x11
@@ -241,7 +348,7 @@ static int lsm6dso_lps22hh_conf(struct lsm6dso_data *data, u8_t i2c_addr,
 
 	return 0;
 }
-
+#endif /* CONFIG_LSM6DSO_EXT_LPS22HH */
 
 /* List of supported external sensors */
 static struct lsm6dso_shub_slist {
@@ -258,6 +365,7 @@ static struct lsm6dso_shub_slist {
 			enum sensor_channel chan, enum sensor_attribute attr,
 			const struct sensor_value *val);
 } lsm6dso_shub_slist[] = {
+#ifdef CONFIG_LSM6DSO_EXT_LIS2MDL
 	{
 		/* LIS2MDL */
 		.type		= SENSOR_CHAN_MAGN_XYZ,
@@ -269,6 +377,23 @@ static struct lsm6dso_shub_slist {
 		.dev_init       = (lsm6dso_lis2mdl_init),
 		.dev_conf       = (lsm6dso_lis2mdl_conf),
 	},
+#endif /* CONFIG_LSM6DSO_EXT_LIS2MDL */
+
+#ifdef CONFIG_LSM6DSO_EXT_HTS221
+	{
+		/* HTS221 */
+		.type		= SENSOR_CHAN_HUMIDITY,
+		.i2c_addr       = { 0x5F },
+		.wai_addr       = 0x0F,
+		.wai_val        = 0xBC,
+		.out_data_addr  = 0x28 | HTS221_AUTOINCREMENT,
+		.out_data_len   = 0x02,
+		.dev_init       = (lsm6dso_hts221_init),
+		.dev_conf       = (lsm6dso_hts221_conf),
+	},
+#endif /* CONFIG_LSM6DSO_EXT_HTS221 */
+
+#ifdef CONFIG_LSM6DSO_EXT_LPS22HB
 	{
 		/* LPS22HB */
 		.type		= SENSOR_CHAN_PRESS,
@@ -279,6 +404,9 @@ static struct lsm6dso_shub_slist {
 		.out_data_len   = 0x05,
 		.dev_init       = (lsm6dso_lps22hb_init),
 	},
+#endif /* CONFIG_LSM6DSO_EXT_LPS22HB */
+
+#ifdef CONFIG_LSM6DSO_EXT_LPS22HH
 	{
 		/* LPS22HH */
 		.type		= SENSOR_CHAN_PRESS,
@@ -290,6 +418,7 @@ static struct lsm6dso_shub_slist {
 		.dev_init       = (lsm6dso_lps22hh_init),
 		.dev_conf       = (lsm6dso_lps22hh_conf),
 	},
+#endif /* CONFIG_LSM6DSO_EXT_LPS22HH */
 };
 
 static inline void lsm6dso_shub_wait_completed(struct lsm6dso_data *data)
