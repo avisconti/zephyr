@@ -72,6 +72,14 @@
 	status = "okay";
 };
 
+arduino_i2s: &i2s1 {
+	status = "ok";
+};
+
+&timers3 {
+	status = "ok";
+};
+
 &rtc {
 	status = "okay";
 };
