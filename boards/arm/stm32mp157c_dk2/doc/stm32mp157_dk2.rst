@@ -196,6 +196,8 @@ The Zephyr stm32mp157c_dk2 board configuration supports the following hardware f
 | UART      | on-chip    | serial port-polling;                |
 |           |            | serial port-interrupt               |
 +-----------+------------+-------------------------------------+
+| PINMUX    | on-chip    | pinmux                              |
++-----------+------------+-------------------------------------+
 
 The default configuration can be found in the defconfig file:
 
