@@ -191,6 +191,8 @@ The Zephyr stm32mp157c_dk2 board configuration supports the following hardware f
 +===========+============+=====================================+
 | NVIC      | on-chip    | nested vector interrupt controller  |
 +-----------+------------+-------------------------------------+
+| GPIO      | on-chip    | gpio                                |
++-----------+------------+-------------------------------------+
 
 The default configuration can be found in the defconfig file:
 

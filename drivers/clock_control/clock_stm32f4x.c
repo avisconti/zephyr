@@ -1,15 +1,17 @@
 /*
- * Copyright (c) 2018 Yurii Hamann
+ *
+ * Copyright (c) 2017 Linaro Limited.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 #include <soc.h>
 #include <soc_registers.h>
 #include <clock_control.h>
 #include <misc/util.h>
 #include <clock_control/stm32_clock_control.h>
-#include "stm32_ll_clock.h"
+#include "clock_stm32_ll_common.h"
 
 
 #ifdef CONFIG_CLOCK_STM32_SYSCLK_SRC_PLL
