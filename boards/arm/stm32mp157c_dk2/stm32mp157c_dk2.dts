@@ -11,8 +11,8 @@
 	model = "STMicroelectronics STM32MP157-DK2  board";
 	compatible = "st,stm32mp157c-dk2", "st,stm32mp15";
 	chosen {
-		zephyr,console = &usart3;
-		zephyr,shell-uart = &usart3;
+		zephyr,console = &uart7;
+		zephyr,shell-uart = &uart7;
 		zephyr,flash = &retram;
 		zephyr,sram = &mcusram;
 	};
