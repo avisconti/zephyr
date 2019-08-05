@@ -1,20 +1,21 @@
 #
-# Copyright (c) 2018 STMicroelectronics
+# Copyright (c) 2019 STMicroelectronics
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 
-title: STMicroelectronics MEMS sensors LIS2MDL
+title: STMicroelectronics MEMS sensors LIS2MDL SPI
 
 description: >
     This binding gives a base representation of LIS2MDL magnetometer
+    accessed through SPI bus
 
 inherits:
-    !include i2c-device.yaml
+    !include spi-device.yaml
 
 properties:
     compatible:
-      constraint: "st,lis2mdl-magn"
+        constraint: "st,lis2mdl-magn"
 
     irq-gpios:
       type: compound
