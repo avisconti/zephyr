@@ -85,7 +85,7 @@
 &spi1 {
 	status = "okay";
 
-	cs-gpios = <&gpioe 11 0>, <&gpioe 12 0>;
+	cs-gpios = <&gpioe 11 0>, <&gpioe 12 0>, <&gpioe 10 0>;
 
 	lis2dw12@0 {
 		compatible = "st,lis2dw12";
@@ -101,6 +101,14 @@
 		reg = <1>;
 		irq-gpios = <&gpioa 2 0>;
 		label = "LSM6DSO";
+	};
+
+	iis3dhhc@2 {
+		compatible = "st,iis3dhhc";
+		spi-max-frequency = <1000000>;
+		reg = <2>;
+		irq-gpios = <&gpioc 13 0>, <&gpioe 6 0>;
+		label = "IIS3DHHC";
 	};
 };
 
