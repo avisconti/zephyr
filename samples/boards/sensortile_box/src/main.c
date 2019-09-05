@@ -77,6 +77,17 @@ static void stts751_trigger_handler(struct device *dev,
 }
 #endif
 
+#ifdef CONFIG_IIS3DHHC_TRIGGER
+static int iis3dhhc_trig_cnt;
+
+static void iis3dhhc_trigger_handler(struct device *dev,
+				     struct sensor_trigger *trig)
+{
+	sensor_sample_fetch_chan(dev, SENSOR_CHAN_ACCEL_XYZ);
+	iis3dhhc_trig_cnt++;
+}
+#endif
+
 static void lps22hh_config(struct device *lps22hh)
 {
 	struct sensor_value odr_attr;
@@ -211,6 +222,29 @@ static void stts751_config(struct device *stts751)
 #endif
 }
 
+static void iis3dhhc_config(struct device *iis3dhhc)
+{
+	struct sensor_value odr_attr;
+
+	/* enable IIS3DHHC conversion */
+	odr_attr.val1 = 1;
+	odr_attr.val2 = 0;
+
+	if (sensor_attr_set(iis3dhhc, SENSOR_CHAN_ALL,
+			    SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr) < 0) {
+		printk("Cannot set sampling frequency for IIS3DHHC\n");
+		return;
+	}
+
+#ifdef CONFIG_IIS3DHHC_TRIGGER
+	struct sensor_trigger trig;
+
+	trig.type = SENSOR_TRIG_DATA_READY;
+	trig.chan = SENSOR_CHAN_ACCEL_XYZ;
+	sensor_trigger_set(iis3dhhc, &trig, iis3dhhc_trigger_handler);
+#endif
+}
+
 void main(void)
 {
 	static struct device *led0, *led1;
@@ -240,6 +274,7 @@ void main(void)
 	struct device *lps22hh = device_get_binding(DT_INST_0_ST_LPS22HH_LABEL);
 	struct device *lsm6dso = device_get_binding(DT_INST_0_ST_LSM6DSO_LABEL);
 	struct device *stts751 = device_get_binding(DT_INST_0_ST_STTS751_LABEL);
+	struct device *iis3dhhc = device_get_binding(DT_INST_0_ST_IIS3DHHC_LABEL);
 
 	if (!hts221) {
 		printk("Could not get pointer to %s sensor\n",
@@ -267,15 +302,22 @@ void main(void)
 		return;
 	}
 
+	if (iis3dhhc == NULL) {
+		printf("Could not get IIS3DHHC device\n");
+		return;
+	}
+
 	lis2dw12_config(lis2dw12);
 	lps22hh_config(lps22hh);
 	lsm6dso_config(lsm6dso);
 	stts751_config(stts751);
+	iis3dhhc_config(iis3dhhc);
 
 	while (1) {
 		struct sensor_value hts221_hum, hts221_temp;
 		struct sensor_value lps22hh_press, lps22hh_temp;
 		struct sensor_value lis2dw12_accel[3];
+		struct sensor_value iis3dhhc_accel[3];
 		struct sensor_value lsm6dso_accel[3], lsm6dso_gyro[3];
 		struct sensor_value stts751_temp;
 
@@ -314,6 +356,13 @@ void main(void)
 		}
 #endif
 
+#ifndef CONFIG_IIS3DHHC_TRIGGER
+		if (sensor_sample_fetch(iis3dhhc) < 0) {
+			printf("IIS3DHHC Sensor sample update error\n");
+			return;
+		}
+#endif
+
 		sensor_channel_get(hts221, SENSOR_CHAN_HUMIDITY, &hts221_hum);
 		sensor_channel_get(hts221, SENSOR_CHAN_AMBIENT_TEMP, &hts221_temp);
 		sensor_channel_get(lis2dw12, SENSOR_CHAN_ACCEL_XYZ, lis2dw12_accel);
@@ -322,6 +371,7 @@ void main(void)
 		sensor_channel_get(lsm6dso, SENSOR_CHAN_ACCEL_XYZ, lsm6dso_accel);
 		sensor_channel_get(lsm6dso, SENSOR_CHAN_GYRO_XYZ, lsm6dso_gyro);
 		sensor_channel_get(stts751, SENSOR_CHAN_AMBIENT_TEMP, &stts751_temp);
+		sensor_channel_get(iis3dhhc, SENSOR_CHAN_ACCEL_XYZ, iis3dhhc_accel);
 
 		/* Display sensor data */
 
@@ -350,6 +400,11 @@ void main(void)
 			sensor_value_to_double(&lis2dw12_accel[0]),
 			sensor_value_to_double(&lis2dw12_accel[1]),
 			sensor_value_to_double(&lis2dw12_accel[2]));
+
+		printf("IIS3DHHC: Accel (m.s-2): x: %.3f, y: %.3f, z: %.3f\n",
+			sensor_value_to_double(&iis3dhhc_accel[0]),
+			sensor_value_to_double(&iis3dhhc_accel[1]),
+			sensor_value_to_double(&iis3dhhc_accel[2]));
 
 		printf("LSM6DSOX: Accel (m.s-2): x: %.3f, y: %.3f, z: %.3f\n",
 			sensor_value_to_double(&lsm6dso_accel[0]),
@@ -380,6 +435,10 @@ void main(void)
 
 #if defined(CONFIG_STTS751_TRIGGER)
 		printk("%d:: stts751 trig %d\n", cnt, stts751_trig_cnt);
+#endif
+
+#if defined(CONFIG_IIS3DHHC_TRIGGER)
+		printk("%d:: iis3dhhc trig %d\n", cnt, iis3dhhc_trig_cnt);
 #endif
 
 		k_sleep(2000);
