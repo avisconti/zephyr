@@ -99,11 +99,11 @@ arduino_spi: &spi1 {
 };
 
 arduino_i2s: &i2s1 {
-	status = "ok";
+	status = "okay";
 };
 
 &timers3 {
-	status = "ok";
+	status = "okay";
 };
 
 &rtc {
