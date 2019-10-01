@@ -102,6 +102,14 @@ arduino_i2s: &i2s1 {
 	status = "okay";
 };
 
+&dma1 {
+	status = "okay";
+};
+
+&dma2 {
+	status = "okay";
+};
+
 &timers3 {
 	status = "okay";
 };
