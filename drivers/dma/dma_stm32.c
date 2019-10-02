@@ -374,9 +374,35 @@ static int dma_stm32_configure(struct device *dev, u32_t id,
 			config->dma_slot = 0;
 		}
 	}
-	DMA_InitStruct.Channel = config->dma_slot;
 
-	stm32_dma_get_fifo_threshold(config->head_block->fifo_mode_control);
+	switch (config->dma_slot) {
+	case 0:
+		DMA_InitStruct.Channel = LL_DMA_CHANNEL_0;
+		break;
+	case 1:
+		DMA_InitStruct.Channel = LL_DMA_CHANNEL_1;
+		break;
+	case 2:
+		DMA_InitStruct.Channel = LL_DMA_CHANNEL_2;
+		break;
+	case 3:
+		DMA_InitStruct.Channel = LL_DMA_CHANNEL_3;
+		break;
+	case 4:
+		DMA_InitStruct.Channel = LL_DMA_CHANNEL_4;
+		break;
+	case 5:
+		DMA_InitStruct.Channel = LL_DMA_CHANNEL_5;
+		break;
+	case 6:
+		DMA_InitStruct.Channel = LL_DMA_CHANNEL_6;
+		break;
+	case 7:
+		DMA_InitStruct.Channel = LL_DMA_CHANNEL_7;
+		break;
+	}
+
+	DMA_InitStruct.FIFOThreshold = stm32_dma_get_fifo_threshold(config->head_block->fifo_mode_control);
 
 	if (stm32_dma_check_fifo_mburst(&DMA_InitStruct)) {
 		DMA_InitStruct.FIFOMode = LL_DMA_FIFOMODE_ENABLE;
@@ -443,6 +469,7 @@ static int dma_stm32_reload(struct device *dev, u32_t id,
 		return -EINVAL;
 	}
 
+	LL_DMA_SetDataLength(dma, table_ll_stream[id], size);
 	return 0;
 }
 
