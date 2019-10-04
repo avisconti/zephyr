@@ -165,6 +165,12 @@ void main(void)
 		}
 	}
 
+	ret = dmic_trigger(mic_dev, DMIC_TRIGGER_STOP);
+	if (ret < 0) {
+		printk("microphone stop trigger error\n");
+		return;
+	}
+
 	/* print PCM stream */
 #ifdef PCM_OUTPUT_IN_ASCII
 	printk("-- start\n");
