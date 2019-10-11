@@ -70,3 +70,7 @@
 &adc1 {
 	status = "okay";
 };
+
+&dma1 {
+	status = "okay";
+};

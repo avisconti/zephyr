@@ -127,3 +127,7 @@
 &wwdg {
 	status = "okay";
 };
+
+&dma2 {
+	status = "okay";
+};
