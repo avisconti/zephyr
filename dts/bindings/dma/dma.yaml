@@ -6,7 +6,7 @@
 
 properties:
     dmas:
-      required: true
+      required: false
       type: phandle-array
       description: DMA instances information
 

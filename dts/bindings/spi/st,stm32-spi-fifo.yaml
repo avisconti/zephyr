@@ -5,7 +5,7 @@ description: STM32 SPI controller with embedded Rx and Tx FIFOs
 
 compatible: "st,stm32-spi-fifo"
 
-include: spi-controller.yaml
+include: [spi-controller.yaml, dma.yaml]
 
 properties:
     reg:
@@ -13,3 +13,5 @@ properties:
 
     interrupts:
       required: true
+
+# refer to st,stm32-spi.yaml for definition
