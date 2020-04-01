@@ -417,10 +417,11 @@ static struct ism330dhcx_shub_slist {
 
 static inline void ism330dhcx_shub_wait_completed(struct ism330dhcx_data *data)
 {
-	u16_t freq;
+	ism330dhcx_status_master_t status;
 
-	freq = (data->accel_freq == 0) ? 26 : data->accel_freq;
-	k_sleep((2000U / freq) + 1);
+	do {
+		ism330dhcx_sh_status_get(data->ctx, &status);
+	} while (status.sens_hub_endop == 0);
 }
 
 static inline void ism330dhcx_shub_embedded_en(struct ism330dhcx_data *data, bool on)
