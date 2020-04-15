@@ -888,8 +888,8 @@ struct queue_item rx_##index##_ring_buf[CONFIG_I2S_STM32_RX_BLOCK_COUNT + 1];\
 struct queue_item tx_##index##_ring_buf[CONFIG_I2S_STM32_TX_BLOCK_COUNT + 1];\
 									\
 static struct i2s_stm32_data i2s_stm32_data_##index = {			\
-	I2S_DMA_CHANNEL_INIT(index, rx, RX, PERIPH, MEM),		\
-	I2S_DMA_CHANNEL_INIT(index, tx, TX, MEM, PERIPH),		\
+	I2S_DMA_CHANNEL_INIT(index, rx, RX, PERIPHERAL, MEMORY),		\
+	I2S_DMA_CHANNEL_INIT(index, tx, TX, MEMORY, PERIPHERAL),		\
 };									\
 DEVICE_AND_API_INIT(i2s_stm32_##index, DT_I2S_##index##_NAME,		\
 		    &i2s_stm32_initialize, &i2s_stm32_data_##index,	\
