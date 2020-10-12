@@ -46,4 +46,34 @@
 		irq-gpios =  <&arduino_header 11 GPIO_ACTIVE_HIGH>; /* D5 */
 		label = "LSM6DSO";
 	};
+
+#if 0
+	iis2iclx@6a {
+		compatible = "st,iis2iclx";
+		reg = <0x6a>;
+		drdy-gpios =  <&arduino_header 5 GPIO_ACTIVE_HIGH>; /* A5 */
+		int-pin = <1>;
+		label = "IIS2ICLX";
+		range = <1>;
+	};
+#endif
 };
+
+#if 1
+&arduino_spi {
+	status = "okay";
+	cs-gpios = <&arduino_header 16 GPIO_ACTIVE_LOW>;                        /* D10 */
+
+	iis2iclx@0 {
+		status = "ok";
+		compatible = "st,iis2iclx";
+		reg = <0x0>;
+		label = "IIS2ICLX";
+		spi-max-frequency = <1000000>;
+		drdy-gpios = <&arduino_header 5 GPIO_ACTIVE_HIGH>;       /* A5 */
+		int-pin = <1>;
+		odr = <4>;
+		range = <2>;
+	};
+};
+#endif

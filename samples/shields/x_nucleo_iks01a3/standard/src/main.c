@@ -42,14 +42,14 @@ static void stts751_trigger_handler(const struct device *dev,
 }
 #endif
 
-#ifdef CONFIG_LIS2DW12_TRIGGER
-static int lis2dw12_trig_cnt;
+#ifdef CONFIG_IIS2ICLX_TRIGGER
+static int iis2iclx_trig_cnt;
 
-static void lis2dw12_trigger_handler(const struct device *dev,
+static void iis2iclx_trigger_handler(const struct device *dev,
 				     struct sensor_trigger *trig)
 {
 	sensor_sample_fetch_chan(dev, SENSOR_CHAN_ACCEL_XYZ);
-	lis2dw12_trig_cnt++;
+	iis2iclx_trig_cnt++;
 }
 #endif
 
@@ -149,34 +149,36 @@ static void stts751_config(const struct device *stts751)
 #endif
 }
 
-static void lis2dw12_config(const struct device *lis2dw12)
+static void iis2iclx_config(const struct device *iis2iclx)
 {
 	struct sensor_value odr_attr, fs_attr;
 
-	/* set LIS2DW12 accel/gyro sampling frequency to 100 Hz */
-	odr_attr.val1 = 100;
+	/* set IIS2ICLX accel/gyro sampling frequency to 100 Hz */
+	odr_attr.val1 = 208;
 	odr_attr.val2 = 0;
 
-	if (sensor_attr_set(lis2dw12, SENSOR_CHAN_ACCEL_XYZ,
+	if (sensor_attr_set(iis2iclx, SENSOR_CHAN_ACCEL_XYZ,
 			    SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr) < 0) {
-		printk("Cannot set sampling frequency for LIS2DW12 accel\n");
+		printk("Cannot set sampling frequency for IIS2ICLX accel\n");
 		return;
 	}
 
-	sensor_g_to_ms2(16, &fs_attr);
+#if 0
+	sensor_g_to_ms2(500, &fs_attr);
 
-	if (sensor_attr_set(lis2dw12, SENSOR_CHAN_ACCEL_XYZ,
+	if (sensor_attr_set(iis2iclx, SENSOR_CHAN_ACCEL_XYZ,
 			    SENSOR_ATTR_FULL_SCALE, &fs_attr) < 0) {
-		printk("Cannot set sampling frequency for LIS2DW12 gyro\n");
+		printk("Cannot set sampling frequency for IIS2ICLX gyro\n");
 		return;
 	}
+#endif
 
-#ifdef CONFIG_LIS2DW12_TRIGGER
+#ifdef CONFIG_IIS2ICLX_TRIGGER
 	struct sensor_trigger trig;
 
 	trig.type = SENSOR_TRIG_DATA_READY;
 	trig.chan = SENSOR_CHAN_ACCEL_XYZ;
-	sensor_trigger_set(lis2dw12, &trig, lis2dw12_trigger_handler);
+	sensor_trigger_set(iis2iclx, &trig, iis2iclx_trigger_handler);
 #endif
 }
 
@@ -247,97 +249,98 @@ void main(void)
 	struct sensor_value accel1[3], accel2[3];
 	struct sensor_value gyro[3];
 	struct sensor_value magn[3];
-	const struct device *hts221 = device_get_binding(DT_LABEL(DT_INST(0, st_hts221)));
-	const struct device *lps22hh = device_get_binding(DT_LABEL(DT_INST(0, st_lps22hh)));
-	const struct device *stts751 = device_get_binding(DT_LABEL(DT_INST(0, st_stts751)));
-	const struct device *lis2mdl = device_get_binding(DT_LABEL(DT_INST(0, st_lis2mdl)));
-	const struct device *lis2dw12 = device_get_binding(DT_LABEL(DT_INST(0, st_lis2dw12)));
-	const struct device *lsm6dso = device_get_binding(DT_LABEL(DT_INST(0, st_lsm6dso)));
+	//const struct device *hts221 = device_get_binding(DT_LABEL(DT_INST(0, st_hts221)));
+	//const struct device *lps22hh = device_get_binding(DT_LABEL(DT_INST(0, st_lps22hh)));
+	//const struct device *stts751 = device_get_binding(DT_LABEL(DT_INST(0, st_stts751)));
+	//const struct device *lis2mdl = device_get_binding(DT_LABEL(DT_INST(0, st_lis2mdl)));
+	const struct device *iis2iclx = device_get_binding(DT_LABEL(DT_INST(0, st_iis2iclx)));
+	//const struct device *lsm6dso = device_get_binding(DT_LABEL(DT_INST(0, st_lsm6dso)));
 	int cnt = 1;
 
-	if (hts221 == NULL) {
-		printf("Could not get HTS221 device\n");
+	//if (hts221 == NULL) {
+		//printf("Could not get HTS221 device\n");
+		//return;
+	//}
+	//if (lps22hh == NULL) {
+		//printf("Could not get LPS22HH device\n");
+		//return;
+	//}
+	//if (stts751 == NULL) {
+		//printf("Could not get STTS751 device\n");
+		//return;
+	//}
+	//if (lis2mdl == NULL) {
+		//printf("Could not get LIS2MDL Magn device\n");
+		//return;
+	//}
+	if (iis2iclx == NULL) {
+		printf("Could not get IIS2ICLX device\n");
 		return;
 	}
-	if (lps22hh == NULL) {
-		printf("Could not get LPS22HH device\n");
-		return;
-	}
-	if (stts751 == NULL) {
-		printf("Could not get STTS751 device\n");
-		return;
-	}
-	if (lis2mdl == NULL) {
-		printf("Could not get LIS2MDL Magn device\n");
-		return;
-	}
-	if (lis2dw12 == NULL) {
-		printf("Could not get LIS2DW12 device\n");
-		return;
-	}
-	if (lsm6dso == NULL) {
-		printf("Could not get LSM6DSO device\n");
-		return;
-	}
+	//if (lsm6dso == NULL) {
+		//printf("Could not get LSM6DSO device\n");
+		//return;
+	//}
 
-	lis2mdl_config(lis2mdl);
-	lps22hh_config(lps22hh);
-	stts751_config(stts751);
-	lis2dw12_config(lis2dw12);
-	lsm6dso_config(lsm6dso);
+	//lis2mdl_config(lis2mdl);
+	//lps22hh_config(lps22hh);
+	//stts751_config(stts751);
+	iis2iclx_config(iis2iclx);
+	//lsm6dso_config(lsm6dso);
 
 	while (1) {
 		/* Get sensor samples */
 
-		if (sensor_sample_fetch(hts221) < 0) {
-			printf("HTS221 Sensor sample update error\n");
-			return;
-		}
+		//if (sensor_sample_fetch(hts221) < 0) {
+			//printf("HTS221 Sensor sample update error\n");
+			//return;
+		//}
 #ifndef CONFIG_LPS22HH_TRIGGER
-		if (sensor_sample_fetch(lps22hh) < 0) {
-			printf("LPS22HH Sensor sample update error\n");
-			return;
-		}
+		//if (sensor_sample_fetch(lps22hh) < 0) {
+			//printf("LPS22HH Sensor sample update error\n");
+			//return;
+		//}
 #endif
-		if (sensor_sample_fetch(stts751) < 0) {
-			printf("STTS751 Sensor sample update error\n");
-			return;
-		}
+		//if (sensor_sample_fetch(stts751) < 0) {
+			//printf("STTS751 Sensor sample update error\n");
+			//return;
+		//}
 
 #ifndef CONFIG_LIS2MDL_TRIGGER
-		if (sensor_sample_fetch(lis2mdl) < 0) {
-			printf("LIS2MDL Magn Sensor sample update error\n");
-			return;
-		}
+		//if (sensor_sample_fetch(lis2mdl) < 0) {
+			//printf("LIS2MDL Magn Sensor sample update error\n");
+			//return;
+		//}
 #endif
 
-#ifndef CONFIG_LIS2DW12_TRIGGER
-		if (sensor_sample_fetch(lis2dw12) < 0) {
-			printf("LIS2DW12 Sensor sample update error\n");
+#ifndef CONFIG_IIS2ICLX_TRIGGER
+		if (sensor_sample_fetch(iis2iclx) < 0) {
+			printf("IIS2ICLX Sensor sample update error\n");
 			return;
 		}
 #endif
 #ifndef CONFIG_LSM6DSO_TRIGGER
-		if (sensor_sample_fetch(lsm6dso) < 0) {
-			printf("LSM6DSO Sensor sample update error\n");
-			return;
-		}
+		//if (sensor_sample_fetch(lsm6dso) < 0) {
+			//printf("LSM6DSO Sensor sample update error\n");
+			//return;
+		//}
 #endif
 
 		/* Get sensor data */
 
-		sensor_channel_get(hts221, SENSOR_CHAN_AMBIENT_TEMP, &temp1);
-		sensor_channel_get(hts221, SENSOR_CHAN_HUMIDITY, &hum);
-		sensor_channel_get(lps22hh, SENSOR_CHAN_AMBIENT_TEMP, &temp2);
-		sensor_channel_get(lps22hh, SENSOR_CHAN_PRESS, &press);
-		sensor_channel_get(stts751, SENSOR_CHAN_AMBIENT_TEMP, &temp3);
-		sensor_channel_get(lis2mdl, SENSOR_CHAN_MAGN_XYZ, magn);
-		sensor_channel_get(lis2mdl, SENSOR_CHAN_DIE_TEMP, &die_temp2);
-		sensor_channel_get(lis2dw12, SENSOR_CHAN_ACCEL_XYZ, accel2);
-		sensor_channel_get(lsm6dso, SENSOR_CHAN_ACCEL_XYZ, accel1);
-		sensor_channel_get(lsm6dso, SENSOR_CHAN_GYRO_XYZ, gyro);
+		//sensor_channel_get(hts221, SENSOR_CHAN_AMBIENT_TEMP, &temp1);
+		//sensor_channel_get(hts221, SENSOR_CHAN_HUMIDITY, &hum);
+		//sensor_channel_get(lps22hh, SENSOR_CHAN_AMBIENT_TEMP, &temp2);
+		//sensor_channel_get(lps22hh, SENSOR_CHAN_PRESS, &press);
+		//sensor_channel_get(stts751, SENSOR_CHAN_AMBIENT_TEMP, &temp3);
+		//sensor_channel_get(lis2mdl, SENSOR_CHAN_MAGN_XYZ, magn);
+		//sensor_channel_get(lis2mdl, SENSOR_CHAN_DIE_TEMP, &die_temp2);
+		sensor_channel_get(iis2iclx, SENSOR_CHAN_ACCEL_XYZ, accel2);
+		sensor_channel_get(iis2iclx, SENSOR_CHAN_DIE_TEMP, &die_temp2);
+		//sensor_channel_get(lsm6dso, SENSOR_CHAN_ACCEL_XYZ, accel1);
+		//sensor_channel_get(lsm6dso, SENSOR_CHAN_GYRO_XYZ, gyro);
 #ifdef CONFIG_LSM6DSO_ENABLE_TEMP
-		sensor_channel_get(lsm6dso, SENSOR_CHAN_DIE_TEMP, &die_temp);
+		//sensor_channel_get(lsm6dso, SENSOR_CHAN_DIE_TEMP, &die_temp);
 #endif
 
 		/* Display sensor data */
@@ -348,76 +351,80 @@ void main(void)
 		printf("X-NUCLEO-IKS01A3 sensor dashboard\n\n");
 
 		/* temperature */
-		printf("HTS221: Temperature: %.1f C\n",
-		       sensor_value_to_double(&temp1));
+		//printf("HTS221: Temperature: %.1f C\n",
+		       //sensor_value_to_double(&temp1));
 
 		/* humidity */
-		printf("HTS221: Relative Humidity: %.1f%%\n",
-		       sensor_value_to_double(&hum));
+		//printf("HTS221: Relative Humidity: %.1f%%\n",
+		       //sensor_value_to_double(&hum));
 
 		/* temperature */
-		printf("LPS22HH: Temperature: %.1f C\n",
-		       sensor_value_to_double(&temp2));
+		//printf("LPS22HH: Temperature: %.1f C\n",
+		       //sensor_value_to_double(&temp2));
 
 		/* pressure */
-		printf("LPS22HH: Pressure:%.3f kpa\n",
-		       sensor_value_to_double(&press));
+		//printf("LPS22HH: Pressure:%.3f kpa\n",
+		       //sensor_value_to_double(&press));
 
 		/* temperature */
-		printf("STTS751: Temperature: %.1f C\n",
-		       sensor_value_to_double(&temp3));
+		//printf("STTS751: Temperature: %.1f C\n",
+		       //sensor_value_to_double(&temp3));
 
 		/* lis2mdl */
-		printf("LIS2MDL: Magn (gauss): x: %.3f, y: %.3f, z: %.3f\n",
-		       sensor_value_to_double(&magn[0]),
-		       sensor_value_to_double(&magn[1]),
-		       sensor_value_to_double(&magn[2]));
+		//printf("LIS2MDL: Magn (gauss): x: %.3f, y: %.3f, z: %.3f\n",
+		       //sensor_value_to_double(&magn[0]),
+		       //sensor_value_to_double(&magn[1]),
+		       //sensor_value_to_double(&magn[2]));
 
-		printf("LIS2MDL: Temperature: %.1f C\n",
-		       sensor_value_to_double(&die_temp2));
+		//printf("LIS2MDL: Temperature: %.1f C\n",
+		       //sensor_value_to_double(&die_temp2));
 
-		printf("LIS2DW12: Accel (m.s-2): x: %.3f, y: %.3f, z: %.3f\n",
+		printf("IIS2ICLX: Accel (m.s-2): x: %.3f, y: %.3f\n",
 			sensor_value_to_double(&accel2[0]),
-			sensor_value_to_double(&accel2[1]),
-			sensor_value_to_double(&accel2[2]));
+			sensor_value_to_double(&accel2[1]));
+#ifdef CONFIG_IIS2ICLX_ENABLE_TEMP
+		/* temperature */
+		printf("IIS2ICLX: Temperature: %.1f C\n",
+		       sensor_value_to_double(&die_temp2));
+#endif
 
-		printf("LSM6DSO: Accel (m.s-2): x: %.3f, y: %.3f, z: %.3f\n",
-			sensor_value_to_double(&accel1[0]),
-			sensor_value_to_double(&accel1[1]),
-			sensor_value_to_double(&accel1[2]));
+		//printf("LSM6DSO: Accel (m.s-2): x: %.3f, y: %.3f, z: %.3f\n",
+			//sensor_value_to_double(&accel1[0]),
+			//sensor_value_to_double(&accel1[1]),
+			//sensor_value_to_double(&accel1[2]));
 
-		printf("LSM6DSO: GYro (dps): x: %.3f, y: %.3f, z: %.3f\n",
-			sensor_value_to_double(&gyro[0]),
-			sensor_value_to_double(&gyro[1]),
-			sensor_value_to_double(&gyro[2]));
+		//printf("LSM6DSO: GYro (dps): x: %.3f, y: %.3f, z: %.3f\n",
+			//sensor_value_to_double(&gyro[0]),
+			//sensor_value_to_double(&gyro[1]),
+			//sensor_value_to_double(&gyro[2]));
 
 #ifdef CONFIG_LSM6DSO_ENABLE_TEMP
 		/* temperature */
-		printf("LSM6DSO: Temperature: %.1f C\n",
-		       sensor_value_to_double(&die_temp));
+		//printf("LSM6DSO: Temperature: %.1f C\n",
+		       //sensor_value_to_double(&die_temp));
 #endif
 
 #if defined(CONFIG_LIS2MDL_TRIGGER)
-		printk("%d:: lis2mdl trig %d\n", cnt, lis2mdl_trig_cnt);
+		//printk("%d:: lis2mdl trig %d\n", cnt, lis2mdl_trig_cnt);
 #endif
 
 #if defined(CONFIG_LPS22HH_TRIGGER)
-		printk("%d:: lps22hh trig %d\n", cnt, lps22hh_trig_cnt);
+		//printk("%d:: lps22hh trig %d\n", cnt, lps22hh_trig_cnt);
 #endif
 
 #if defined(CONFIG_STTS751_TRIGGER)
-		printk("%d:: stts751 trig %d\n", cnt, stts751_trig_cnt);
+		//printk("%d:: stts751 trig %d\n", cnt, stts751_trig_cnt);
 #endif
 
-#ifdef CONFIG_LIS2DW12_TRIGGER
-		printk("%d:: lis2dw12 trig %d\n", cnt, lis2dw12_trig_cnt);
+#ifdef CONFIG_IIS2ICLX_TRIGGER
+		printk("%d:: iis2iclx trig %d\n", cnt, iis2iclx_trig_cnt);
 #endif
 
 #ifdef CONFIG_LSM6DSO_TRIGGER
-		printk("%d:: lsm6dso acc trig %d\n", cnt, lsm6dso_acc_trig_cnt);
-		printk("%d:: lsm6dso gyr trig %d\n", cnt, lsm6dso_gyr_trig_cnt);
-		printk("%d:: lsm6dso temp trig %d\n", cnt,
-			lsm6dso_temp_trig_cnt);
+		//printk("%d:: lsm6dso acc trig %d\n", cnt, lsm6dso_acc_trig_cnt);
+		//printk("%d:: lsm6dso gyr trig %d\n", cnt, lsm6dso_gyr_trig_cnt);
+		//printk("%d:: lsm6dso temp trig %d\n", cnt,
+			//lsm6dso_temp_trig_cnt);
 #endif
 
 		cnt++;
