@@ -10,214 +10,101 @@
 #include <stdio.h>
 #include <sys/util.h>
 
-#ifdef CONFIG_IIS2DLPC_TRIGGER
-static int iis2dlpc_trig_cnt;
+#ifdef CONFIG_IIS2ICLX_TRIGGER
+static int iis2iclx_i2c_trig_cnt;
+static int iis2iclx_spi_trig_cnt;
 
-static void iis2dlpc_trigger_handler(const struct device *dev,
-				     struct sensor_trigger *trig)
-{
-	sensor_sample_fetch_chan(dev, SENSOR_CHAN_ACCEL_XYZ);
-	iis2dlpc_trig_cnt++;
-}
-#endif
-
-#ifdef CONFIG_IIS2MDC_TRIGGER
-static int iis2mdc_trig_cnt;
-
-static void iis2mdc_trigger_handler(const struct device *dev,
-				    struct sensor_trigger *trig)
-{
-	sensor_sample_fetch_chan(dev, SENSOR_CHAN_ALL);
-	iis2mdc_trig_cnt++;
-}
-#endif
-
-#ifdef CONFIG_ISM330DHCX_TRIGGER
-static int ism330dhcx_acc_trig_cnt;
-static int ism330dhcx_gyr_trig_cnt;
-
-static void ism330dhcx_acc_trigger_handler(const struct device *dev,
+static void iis2iclx_i2c_trigger_handler(const struct device *dev,
 					   struct sensor_trigger *trig)
 {
 	sensor_sample_fetch_chan(dev, SENSOR_CHAN_ACCEL_XYZ);
-	ism330dhcx_acc_trig_cnt++;
+	iis2iclx_i2c_trig_cnt++;
 }
 
-static void ism330dhcx_gyr_trigger_handler(const struct device *dev,
+static void iis2iclx_spi_trigger_handler(const struct device *dev,
 					   struct sensor_trigger *trig)
 {
-	sensor_sample_fetch_chan(dev, SENSOR_CHAN_GYRO_XYZ);
-	ism330dhcx_gyr_trig_cnt++;
+	sensor_sample_fetch_chan(dev, SENSOR_CHAN_ACCEL_XYZ);
+	iis2iclx_spi_trig_cnt++;
 }
+
 #endif
 
-static void iis2dlpc_config(const struct device *iis2dlpc)
+static void iis2iclx_config(const struct device *iis2iclx, uint16_t odr)
 {
 	struct sensor_value odr_attr, fs_attr;
 
-	/* set IIS2DLPC accel/gyro sampling frequency to 100 Hz */
-	odr_attr.val1 = 100;
+	/* set IIS2ICLX sampling frequency to 416 Hz */
+	odr_attr.val1 = odr;
 	odr_attr.val2 = 0;
 
-	if (sensor_attr_set(iis2dlpc, SENSOR_CHAN_ACCEL_XYZ,
+	if (sensor_attr_set(iis2iclx, SENSOR_CHAN_ACCEL_XYZ,
 			    SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr) < 0) {
-		printk("Cannot set sampling frequency for IIS2DLPC accel\n");
+		printk("Cannot set sampling frequency for IIS2ICLX accel\n");
 		return;
 	}
 
-	sensor_g_to_ms2(16, &fs_attr);
+	sensor_g_to_ms2(1000, &fs_attr);
 
-	if (sensor_attr_set(iis2dlpc, SENSOR_CHAN_ACCEL_XYZ,
+	if (sensor_attr_set(iis2iclx, SENSOR_CHAN_ACCEL_XYZ,
 			    SENSOR_ATTR_FULL_SCALE, &fs_attr) < 0) {
-		printk("Cannot set sampling frequency for IIS2DLPC gyro\n");
+		printk("Cannot set sampling frequency for IIS2ICLX accel\n");
 		return;
 	}
-
-#ifdef CONFIG_IIS2DLPC_TRIGGER
-	struct sensor_trigger trig;
-
-	trig.type = SENSOR_TRIG_DATA_READY;
-	trig.chan = SENSOR_CHAN_ACCEL_XYZ;
-	sensor_trigger_set(iis2dlpc, &trig, iis2dlpc_trigger_handler);
-#endif
-}
-
-static void iis2mdc_config(const struct device *iis2mdc)
-{
-	struct sensor_value odr_attr;
-
-	/* set IIS2MDC sampling frequency to 100 Hz */
-	odr_attr.val1 = 100;
-	odr_attr.val2 = 0;
-
-	if (sensor_attr_set(iis2mdc, SENSOR_CHAN_ALL,
-			    SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr) < 0) {
-		printk("Cannot set sampling frequency for IIS2MDC\n");
-		return;
-	}
-
-#ifdef CONFIG_IIS2MDC_TRIGGER
-	struct sensor_trigger trig;
-
-	trig.type = SENSOR_TRIG_DATA_READY;
-	trig.chan = SENSOR_CHAN_MAGN_XYZ;
-	sensor_trigger_set(iis2mdc, &trig, iis2mdc_trigger_handler);
-#endif
-}
-
-static void ism330dhcx_config(const struct device *ism330dhcx)
-{
-	struct sensor_value odr_attr, fs_attr;
-
-	/* set ISM330DHCX sampling frequency to 416 Hz */
-	odr_attr.val1 = 416;
-	odr_attr.val2 = 0;
-
-	if (sensor_attr_set(ism330dhcx, SENSOR_CHAN_ACCEL_XYZ,
-			    SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr) < 0) {
-		printk("Cannot set sampling frequency for ISM330DHCX accel\n");
-		return;
-	}
-
-	sensor_g_to_ms2(16, &fs_attr);
-
-	if (sensor_attr_set(ism330dhcx, SENSOR_CHAN_ACCEL_XYZ,
-			    SENSOR_ATTR_FULL_SCALE, &fs_attr) < 0) {
-		printk("Cannot set sampling frequency for ISM330DHCX accel\n");
-		return;
-	}
-
-	/* set ISM330DHCX gyro sampling frequency to 208 Hz */
-	odr_attr.val1 = 208;
-	odr_attr.val2 = 0;
-
-	if (sensor_attr_set(ism330dhcx, SENSOR_CHAN_GYRO_XYZ,
-			    SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr) < 0) {
-		printk("Cannot set sampling frequency for ISM330DHCX gyro\n");
-		return;
-	}
-
-	sensor_degrees_to_rad(250, &fs_attr);
-
-	if (sensor_attr_set(ism330dhcx, SENSOR_CHAN_GYRO_XYZ,
-			    SENSOR_ATTR_FULL_SCALE, &fs_attr) < 0) {
-		printk("Cannot set fs for ISM330DHCX gyro\n");
-		return;
-	}
-
-#ifdef CONFIG_ISM330DHCX_TRIGGER
-	struct sensor_trigger trig;
-
-	trig.type = SENSOR_TRIG_DATA_READY;
-	trig.chan = SENSOR_CHAN_ACCEL_XYZ;
-	sensor_trigger_set(ism330dhcx, &trig, ism330dhcx_acc_trigger_handler);
-
-	trig.type = SENSOR_TRIG_DATA_READY;
-	trig.chan = SENSOR_CHAN_GYRO_XYZ;
-	sensor_trigger_set(ism330dhcx, &trig, ism330dhcx_gyr_trigger_handler);
-#endif
 }
 
 void main(void)
 {
-#ifdef CONFIG_ISM330DHCX_ENABLE_TEMP
+#ifdef CONFIG_IIS2ICLX_ENABLE_TEMP
 	struct sensor_value die_temp;
 #endif
-	struct sensor_value die_temp2;
-	struct sensor_value accel1[3], accel2[3];
-	struct sensor_value gyro[3];
-	struct sensor_value magn[3];
-	const struct device *iis2dlpc = device_get_binding(DT_LABEL(DT_INST(0, st_iis2dlpc)));
-	const struct device *iis2mdc = device_get_binding(DT_LABEL(DT_INST(0, st_iis2mdc)));
-	const struct device *ism330dhcx = device_get_binding(DT_LABEL(DT_INST(0, st_ism330dhcx)));
+	struct sensor_value accel1[3];
+	struct sensor_value accel2[3];
+	const struct device *iis2iclx_i2c = device_get_binding("IIS2ICLX_I2C");
+	const struct device *iis2iclx_spi = device_get_binding("IIS2ICLX_SPI");
 	int cnt = 1;
 
-	if (iis2dlpc == NULL) {
-		printf("Could not get IIS2DLPC device\n");
-		return;
-	}
-	if (iis2mdc == NULL) {
-		printf("Could not get IIS2MDC Magn device\n");
-		return;
-	}
-	if (ism330dhcx == NULL) {
-		printf("Could not get ISM330DHCX IMU device\n");
+	if (iis2iclx_i2c == NULL) {
+		printf("Could not get IIS2ICLX I2C device\n");
 		return;
 	}
 
-	iis2dlpc_config(iis2dlpc);
-	iis2mdc_config(iis2mdc);
-	ism330dhcx_config(ism330dhcx);
+	if (iis2iclx_spi == NULL) {
+		printf("Could not get IIS2ICLX SPI device\n");
+		return;
+	}
+
+	iis2iclx_config(iis2iclx_i2c, 208);
+	iis2iclx_config(iis2iclx_spi, 416);
+
+#ifdef CONFIG_IIS2ICLX_TRIGGER
+	struct sensor_trigger trig;
+
+	trig.type = SENSOR_TRIG_DATA_READY;
+	trig.chan = SENSOR_CHAN_ACCEL_XYZ;
+	sensor_trigger_set(iis2iclx_i2c, &trig, iis2iclx_i2c_trigger_handler);
+	sensor_trigger_set(iis2iclx_spi, &trig, iis2iclx_spi_trigger_handler);
+
+#endif
 
 	while (1) {
 		/* Get sensor samples */
 
-#ifndef CONFIG_IIS2DLPC_TRIGGER
-		if (sensor_sample_fetch(iis2dlpc) < 0) {
-			printf("IIS2DLPC Sensor sample update error\n");
+#ifndef CONFIG_IIS2ICLX_TRIGGER
+		if (sensor_sample_fetch(iis2iclx_i2c) < 0) {
+			printf("IIS2ICLX i2c Sensor sample update error\n");
 			return;
 		}
-#endif
-#ifndef CONFIG_IIS2MDC_TRIGGER
-		if (sensor_sample_fetch(iis2mdc) < 0) {
-			printf("IIS2MDC Magn Sensor sample update error\n");
-			return;
-		}
-#endif
-#ifndef CONFIG_ISM330DHCX_TRIGGER
-		if (sensor_sample_fetch(ism330dhcx) < 0) {
-			printf("ISM330DHCX IMU Sensor sample update error\n");
+		if (sensor_sample_fetch(iis2iclx_spi) < 0) {
+			printf("IIS2ICLX spi Sensor sample update error\n");
 			return;
 		}
 #endif
 
 		/* Get sensor data */
 
-		sensor_channel_get(iis2dlpc, SENSOR_CHAN_ACCEL_XYZ, accel2);
-		sensor_channel_get(iis2mdc, SENSOR_CHAN_MAGN_XYZ, magn);
-		sensor_channel_get(iis2mdc, SENSOR_CHAN_DIE_TEMP, &die_temp2);
-		sensor_channel_get(ism330dhcx, SENSOR_CHAN_ACCEL_XYZ, accel1);
-		sensor_channel_get(ism330dhcx, SENSOR_CHAN_GYRO_XYZ, gyro);
+		sensor_channel_get(iis2iclx_i2c, SENSOR_CHAN_ACCEL_XYZ, accel1);
+		sensor_channel_get(iis2iclx_spi, SENSOR_CHAN_ACCEL_XYZ, accel2);
 
 		/* Display sensor data */
 
@@ -226,42 +113,18 @@ void main(void)
 
 		printf("X-NUCLEO-IKS02A1 sensor Mode 1 dashboard\n\n");
 
-		printf("IIS2DLPC: Accel (m.s-2): x: %.3f, y: %.3f, z: %.3f\n",
-			sensor_value_to_double(&accel2[0]),
-			sensor_value_to_double(&accel2[1]),
-			sensor_value_to_double(&accel2[2]));
-
-		/* iis2mdc */
-		printf("IIS2MDC: Magn (gauss): x: %.3f, y: %.3f, z: %.3f\n",
-		       sensor_value_to_double(&magn[0]),
-		       sensor_value_to_double(&magn[1]),
-		       sensor_value_to_double(&magn[2]));
-
-		printf("IIS2MDC: Temperature: %.1f C\n",
-		       sensor_value_to_double(&die_temp2));
-
-		printf("ISM330DHCX: Accel (m.s-2): x: %.3f, y: %.3f, z: %.3f\n",
+		printf("IIS2ICLX i2c: Accel (m.s-2): x: %.3f, y: %.3f, \n",
 			sensor_value_to_double(&accel1[0]),
-			sensor_value_to_double(&accel1[1]),
-			sensor_value_to_double(&accel1[2]));
+			sensor_value_to_double(&accel1[1]));
+		printf("IIS2ICLX spi: Accel (m.s-2): x: %.3f, y: %.3f, \n",
+			sensor_value_to_double(&accel2[0]),
+			sensor_value_to_double(&accel2[1]));
 
-		printf("ISM330DHCX: GYro (dps): x: %.3f, y: %.3f, z: %.3f\n",
-			sensor_value_to_double(&gyro[0]),
-			sensor_value_to_double(&gyro[1]),
-			sensor_value_to_double(&gyro[2]));
-#ifdef CONFIG_IIS2DLPC_TRIGGER
-		printk("%d:: iis2dlpc trig %d\n", cnt, iis2dlpc_trig_cnt);
+
+#ifdef CONFIG_IIS2ICLX_TRIGGER
+		printk("%d:: iis2iclx i2c trig %d\n", cnt, iis2iclx_i2c_trig_cnt);
+		printk("%d:: iis2iclx spi trig %d\n", cnt, iis2iclx_spi_trig_cnt);
 #endif
-
-#if defined(CONFIG_IIS2MDC_TRIGGER)
-		printk("%d:: iis2mdc trig %d\n", cnt, iis2mdc_trig_cnt);
-#endif
-
-#ifdef CONFIG_ISM330DHCX_TRIGGER
-		printk("%d:: ism330dhcx acc trig %d\n", cnt, ism330dhcx_acc_trig_cnt);
-		printk("%d:: ism330dhcx gyr trig %d\n", cnt, ism330dhcx_gyr_trig_cnt);
-#endif
-
 
 		cnt++;
 		k_sleep(K_MSEC(2000));
