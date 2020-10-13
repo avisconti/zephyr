@@ -29,10 +29,11 @@
 		label = "IIS2MDC";
 	};
 
-	ism330dhcx@6b {
-		compatible = "st,ism330dhcx";
+	iis2iclx@6b {
+		compatible = "st,iis2iclx";
 		reg = <0x6b>;
 		drdy-gpios =  <&arduino_header 11 GPIO_ACTIVE_HIGH>; /* D5 - INT2 */
-		label = "ISM330DHCX";
+		label = "IIS2ICLX";
+		int-pin = <2>;
 	};
 };
