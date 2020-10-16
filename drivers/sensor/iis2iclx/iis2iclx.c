@@ -704,11 +704,7 @@ static int iis2iclx_init(const struct device *dev)
 #define IRQ_DEV_NAME(inst)	(DT_INST_GPIO_LABEL(inst, drdy_gpios))
 #define IRQ_PIN(inst)		(DT_INST_GPIO_PIN(inst, drdy_gpios))
 #define IRQ_FLAGS(inst)		(DT_INST_GPIO_FLAGS(inst, drdy_gpios))
-#if defined(CONFIG_IIS2ICLX_INT_PIN_1)
-#define INT_PIN		1
-#elif defined(CONFIG_IIS2ICLX_INT_PIN_2)
-#define INT_PIN		2
-#endif /* CONFIG_IIS2ICLX_INT_PIN_* */
+#define INT_PIN(inst)		(DT_INST_PROP(inst, int_pin))
 
 #ifdef CONFIG_IIS2ICLX_TRIGGER
 #define IIS2ICLX_CONFIG_SPI(inst)					\
@@ -719,7 +715,7 @@ static int iis2iclx_init(const struct device *dev)
 		.irq_dev_name = IRQ_DEV_NAME(inst),			\
 		.irq_pin = IRQ_PIN(inst),				\
 		.irq_flags = IRQ_FLAGS(inst),				\
-		.int_pin = INT_PIN,					\
+		.int_pin = INT_PIN(inst),				\
 	}
 #else
 #define IIS2ICLX_CONFIG_SPI(inst)					\
@@ -750,7 +746,7 @@ static int iis2iclx_init(const struct device *dev)
 		.irq_dev_name = IRQ_DEV_NAME(inst),			\
 		.irq_pin = IRQ_PIN(inst),				\
 		.irq_flags = IRQ_FLAGS(inst),				\
-		.int_pin = INT_PIN,					\
+		.int_pin = INT_PIN(inst),				\
 	}
 #else
 #define IIS2ICLX_CONFIG_I2C(inst)					\
