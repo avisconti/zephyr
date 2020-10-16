@@ -177,6 +177,10 @@ static int iis2iclx_attr_set(const struct device *dev,
 			       enum sensor_attribute attr,
 			       const struct sensor_value *val)
 {
+#if defined(CONFIG_IIS2ICLX_SENSORHUB)
+	struct iis2iclx_data *data = dev->data;
+#endif /* CONFIG_IIS2ICLX_SENSORHUB */
+
 	switch (chan) {
 	case SENSOR_CHAN_ACCEL_XYZ:
 		return iis2iclx_accel_config(dev, chan, attr, val);
@@ -184,6 +188,11 @@ static int iis2iclx_attr_set(const struct device *dev,
 	case SENSOR_CHAN_MAGN_XYZ:
 	case SENSOR_CHAN_PRESS:
 	case SENSOR_CHAN_HUMIDITY:
+		if (!data->shub_inited) {
+			LOG_ERR("shub not inited.");
+			return -ENOTSUP;
+		}
+
 		return iis2iclx_shub_config(dev, chan, attr, val);
 #endif /* CONFIG_IIS2ICLX_SENSORHUB */
 	default:
@@ -242,10 +251,20 @@ static int iis2iclx_sample_fetch_shub(const struct device *dev)
 static int iis2iclx_sample_fetch(const struct device *dev,
 				   enum sensor_channel chan)
 {
+#if defined(CONFIG_IIS2ICLX_SENSORHUB)
+	struct iis2iclx_data *data = dev->data;
+#endif
+
 	switch (chan) {
 	case SENSOR_CHAN_ACCEL_XYZ:
 		iis2iclx_sample_fetch_accel(dev);
+
 #if defined(CONFIG_IIS2ICLX_SENSORHUB)
+		if (!data->shub_inited) {
+			LOG_ERR("shub not inited.");
+			return -ENOTSUP;
+		}
+
 		iis2iclx_sample_fetch_shub(dev);
 #endif
 		break;
@@ -260,6 +279,11 @@ static int iis2iclx_sample_fetch(const struct device *dev,
 		iis2iclx_sample_fetch_temp(dev);
 #endif
 #if defined(CONFIG_IIS2ICLX_SENSORHUB)
+		if (!data->shub_inited) {
+			LOG_WRN("attr_set() shub not inited.");
+			return 0;
+		}
+
 		iis2iclx_sample_fetch_shub(dev);
 #endif
 		break;
@@ -474,18 +498,38 @@ static int iis2iclx_channel_get(const struct device *dev,
 	case SENSOR_CHAN_MAGN_Y:
 	case SENSOR_CHAN_MAGN_Z:
 	case SENSOR_CHAN_MAGN_XYZ:
+		if (!data->shub_inited) {
+			LOG_ERR("shub not inited.");
+			return -ENOTSUP;
+		}
+
 		iis2iclx_magn_get_channel(chan, val, data);
 		break;
 
 	case SENSOR_CHAN_HUMIDITY:
+		if (!data->shub_inited) {
+			LOG_ERR("shub not inited.");
+			return -ENOTSUP;
+		}
+
 		iis2iclx_hum_convert(val, data);
 		break;
 
 	case SENSOR_CHAN_PRESS:
+		if (!data->shub_inited) {
+			LOG_ERR("shub not inited.");
+			return -ENOTSUP;
+		}
+
 		iis2iclx_press_convert(val, data);
 		break;
 
 	case SENSOR_CHAN_AMBIENT_TEMP:
+		if (!data->shub_inited) {
+			LOG_ERR("attr_set() shub not inited.");
+			return -ENOTSUP;
+		}
+
 		iis2iclx_temp_convert(val, data);
 		break;
 #endif
@@ -586,9 +630,10 @@ static int iis2iclx_init(const struct device *dev)
 
 #ifdef CONFIG_IIS2ICLX_SENSORHUB
 	if (iis2iclx_shub_init(dev) < 0) {
-		LOG_ERR("failed to initialize external chip");
-		return -EIO;
+		LOG_INF("failed to initialize external chips");
+		data->shub_inited = false;
 	}
+	data->shub_inited = true;
 #endif
 
 	return 0;

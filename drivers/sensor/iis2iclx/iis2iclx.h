@@ -109,6 +109,8 @@ struct iis2iclx_data {
 		int16_t y0;
 		int16_t y1;
 	} hts221;
+
+	bool shub_inited;
 #endif /* CONFIG_IIS2ICLX_SENSORHUB */
 
 	stmdev_ctx_t *ctx;
