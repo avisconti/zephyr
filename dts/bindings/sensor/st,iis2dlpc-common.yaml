@@ -33,3 +33,90 @@ properties:
         - 2 # Low Power M3
         - 3 # Low Power M4
         - 4 # High Performance
+
+    pulse-mode:
+      type: int
+      required: false
+      default: 0
+      description: Pulse mode
+      enum:
+        - 0 # Only Single
+        - 1 # Single adn Double
+
+    pulse-thsx:
+      type: int
+      required: false
+      default: 0x0E
+      description: Pulse X-axis threshold
+        (values range from 0x00 to 0x1F)
+        Threshold to start the pulse-event detection procedure on the X-axis.
+        Threshold values for each axis are unsigned 5-bit corresponding
+        to an 2g acceleration full-scale range.
+
+    pulse-thsy:
+      type: int
+      required: false
+      default: 0x0E
+      description: Pulse Y-axis threshold
+        (values range from 0x00 to 0x1F)
+        Threshold to start the pulse-event detection procedure on the Y-axis.
+        Threshold values for each axis are unsigned 5-bit corresponding
+        to an 2g acceleration full-scale range.
+
+    pulse-thsz:
+      type: int
+      required: false
+      default: 0x0E
+      description: Pulse Z-axis threshold
+        (values range from 0x00 to 0x1F)
+        Threshold to start the pulse-event detection procedure on the Z-axis.
+        Threshold values for each axis are unsigned 5-bit corresponding
+        to an 2g acceleration full-scale range.
+
+    pulse-x-enable:
+      type: int
+      required: false
+      default: 1
+      description: Enable X axis for pulse
+
+    pulse-y-enable:
+      type: int
+      required: false
+      default: 1
+      description: Enable Y axis for pulse
+
+    pulse-z-enable:
+      type: int
+      required: false
+      default: 1
+      description: Enable Z axis for pulse
+
+    pulse-shock:
+      type: int
+      required: false
+      default: 0x00
+      description: Pulse shock value
+        (values range from 0x0 to 0x3)
+        This register represents the maximum time of an over-threshold signal
+        detection to be recognized as a tap event. Where 0 equals 4*1/ODR and
+        1LSB = 8*1/ODR.
+
+    pulse-ltcy:
+      type: int
+      required: false
+      default: 0x05
+      description: Pulse latency
+        (values range from 0x0 to 0xF)
+        When double-tap recognition is enabled, this register expresses the
+        maximum time between two successive detected taps to determine a
+        double-tap event. Where 0 equals 16*1/ODR and 1LSB = 32*1/ODR.
+
+    pulse-quiet:
+      type: int
+      required: false
+      default: 0x00
+      description: Expected quiet time after a tap detection
+        (values range from 0x0 to 0x3)
+        This register represents the time after the first detected tap in which
+        there must not be any overthreshold event. Where 0 equals 2*1/ODR
+        and 1LSB = 4*1/ODR.

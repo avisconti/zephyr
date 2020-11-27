@@ -66,6 +66,9 @@ struct iis2dlpc_device_config {
 #ifdef CONFIG_IIS2DLPC_PULSE
 	uint8_t pulse_trigger;
 	uint8_t pulse_ths[3];
+	bool	pulse_x_en;
+	bool	pulse_y_en;
+	bool	pulse_z_en;
 	uint8_t pulse_shock;
 	uint8_t pulse_ltncy;
 	uint8_t pulse_quiet;
