@@ -21,6 +21,11 @@
 		drdy-gpios =  <&arduino_header 4 GPIO_ACTIVE_HIGH>; /* A4 - INT2 */
 		drdy-int =  <2>;
 		label = "IIS2DLPC";
+		tap-mode = <0>;
+		tap-threshold = <14>, <14>, <14>;
+		tap-shock = <0>;
+		tap-latency = <0>;
+		tap-quiet = <1>;
 	};
 
 	iis2mdc@1e {
@@ -36,5 +41,19 @@
 		drdy-gpios =  <&arduino_header 11 GPIO_ACTIVE_HIGH>; /* D5 - INT2 */
 		label = "ISM330DHCX";
 		int-pin = <2>;
+	};
+};
+
+&arduino_spi {
+	status = "okay";
+	cs-gpios = <&arduino_header 16 GPIO_ACTIVE_LOW>;                        /* D10 */
+
+	iis2dlpc@0 {
+		status = "ok";
+		compatible = "st,iis2dlpc";
+		reg = <0x0>;
+		label = "IIS2DLPC_SPI";
+		spi-max-frequency = <1000000>;
+		drdy-gpios = <&arduino_header 5 GPIO_ACTIVE_HIGH>;       /* A5 */
 	};
 };
