@@ -19,6 +19,15 @@ static void iis2dlpc_trigger_handler(const struct device *dev,
 	sensor_sample_fetch_chan(dev, SENSOR_CHAN_ACCEL_XYZ);
 	iis2dlpc_trig_cnt++;
 }
+
+static int iis2dlpc_tap_cnt;
+
+static void iis2dlpc_trigger_tap_handler(const struct device *dev,
+				     struct sensor_trigger *trig)
+{
+	sensor_sample_fetch_chan(dev, SENSOR_CHAN_ACCEL_XYZ);
+	iis2dlpc_tap_cnt++;
+}
 #endif
 
 #ifdef CONFIG_IIS2MDC_TRIGGER
@@ -55,8 +64,8 @@ static void iis2dlpc_config(const struct device *iis2dlpc)
 {
 	struct sensor_value odr_attr, fs_attr;
 
-	/* set IIS2DLPC accel/gyro sampling frequency to 100 Hz */
-	odr_attr.val1 = 100;
+	/* set IIS2DLPC accel/gyro sampling frequency to 200 Hz */
+	odr_attr.val1 = 200;
 	odr_attr.val2 = 0;
 
 	if (sensor_attr_set(iis2dlpc, SENSOR_CHAN_ACCEL_XYZ,
@@ -65,7 +74,7 @@ static void iis2dlpc_config(const struct device *iis2dlpc)
 		return;
 	}
 
-	sensor_g_to_ms2(16, &fs_attr);
+	sensor_g_to_ms2(2, &fs_attr);
 
 	if (sensor_attr_set(iis2dlpc, SENSOR_CHAN_ACCEL_XYZ,
 			    SENSOR_ATTR_FULL_SCALE, &fs_attr) < 0) {
@@ -79,6 +88,10 @@ static void iis2dlpc_config(const struct device *iis2dlpc)
 	trig.type = SENSOR_TRIG_DATA_READY;
 	trig.chan = SENSOR_CHAN_ACCEL_XYZ;
 	sensor_trigger_set(iis2dlpc, &trig, iis2dlpc_trigger_handler);
+
+	trig.type = SENSOR_TRIG_TAP;
+	trig.chan = SENSOR_CHAN_ACCEL_XYZ;
+	sensor_trigger_set(iis2dlpc, &trig, iis2dlpc_trigger_tap_handler);
 #endif
 }
 
@@ -251,6 +264,7 @@ void main(void)
 			sensor_value_to_double(&gyro[2]));
 #ifdef CONFIG_IIS2DLPC_TRIGGER
 		printk("%d:: iis2dlpc trig %d\n", cnt, iis2dlpc_trig_cnt);
+		printk("%d:: iis2dlpc tap %d\n", cnt, iis2dlpc_tap_cnt);
 #endif
 
 #if defined(CONFIG_IIS2MDC_TRIGGER)
