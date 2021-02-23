@@ -107,6 +107,7 @@ static void iis2mdc_config(const struct device *iis2mdc)
 
 static void ism330dhcx_config(const struct device *ism330dhcx)
 {
+	#if 0
 	struct sensor_value odr_attr, fs_attr;
 
 	/* set ISM330DHCX sampling frequency to 416 Hz */
@@ -144,6 +145,7 @@ static void ism330dhcx_config(const struct device *ism330dhcx)
 		printk("Cannot set fs for ISM330DHCX gyro\n");
 		return;
 	}
+	#endif
 
 #ifdef CONFIG_ISM330DHCX_TRIGGER
 	struct sensor_trigger trig;

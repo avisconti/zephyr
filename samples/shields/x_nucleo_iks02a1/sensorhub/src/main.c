@@ -83,6 +83,7 @@ static void ism330dhcx_config(const struct device *ism330dhcx)
 {
 	struct sensor_value odr_attr, fs_attr;
 
+	#if 0
 	/* set ISM330DHCX accel sampling frequency to 208 Hz */
 	odr_attr.val1 = 208;
 	odr_attr.val2 = 0;
@@ -118,6 +119,7 @@ static void ism330dhcx_config(const struct device *ism330dhcx)
 		printk("Cannot set fs for ISM330DHCX gyro\n");
 		return;
 	}
+	#endif
 
 	/* set ISM330DHCX external magn sampling frequency to 100 Hz */
 	odr_attr.val1 = 100;

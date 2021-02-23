@@ -35,5 +35,9 @@
 		reg = <0x6b>;
 		drdy-gpios =  <&arduino_header 11 GPIO_ACTIVE_HIGH>; /* D5 - INT2 */
 		label = "ISM330DHCX";
+		accel-odr = <6>;
+		accel-range = <4>;
+		gyro-odr = <4>;
+		gyro-range = <2000>;
 	};
 };
