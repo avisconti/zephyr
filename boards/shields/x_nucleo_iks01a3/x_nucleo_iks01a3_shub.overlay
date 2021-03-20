@@ -21,3 +21,20 @@
 		int-pin = <2>;
 	};
 };
+
+#if 1
+&arduino_spi {
+	status = "okay";
+	cs-gpios = <&arduino_header 16 GPIO_ACTIVE_LOW>;                        /* D10 */
+
+	lsm6dso@0 {
+		status = "ok";
+		compatible = "st,lsm6dso";
+		reg = <0x0>;
+		label = "LSM6DSO_SPI";
+		spi-max-frequency = <1000000>;
+		irq-gpios = <&arduino_header 5 GPIO_ACTIVE_HIGH>;       /* A5 */
+		//int-pin = <1>;
+	};
+};
+#endif

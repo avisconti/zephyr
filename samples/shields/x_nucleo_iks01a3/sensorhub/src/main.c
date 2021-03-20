@@ -29,7 +29,7 @@ static int lsm6dso_temp_trig_cnt;
 static void lsm6dso_acc_trig_handler(const struct device *dev,
 				     struct sensor_trigger *trig)
 {
-	sensor_sample_fetch_chan(dev, SENSOR_CHAN_ACCEL_XYZ);
+	sensor_sample_fetch(dev);
 	lsm6dso_acc_trig_cnt++;
 }
 
@@ -45,6 +45,31 @@ static void lsm6dso_temp_trig_handler(const struct device *dev,
 {
 	sensor_sample_fetch_chan(dev, SENSOR_CHAN_DIE_TEMP);
 	lsm6dso_temp_trig_cnt++;
+}
+
+static int lsm6dso_acc_trig_cnt2;
+static int lsm6dso_gyr_trig_cnt2;
+static int lsm6dso_temp_trig_cnt2;
+
+static void lsm6dso_acc_trig_handler_dil24(const struct device *dev,
+				     struct sensor_trigger *trig)
+{
+	sensor_sample_fetch(dev);
+	lsm6dso_acc_trig_cnt2++;
+}
+
+static void lsm6dso_gyr_trig_handler_dil24(const struct device *dev,
+				     struct sensor_trigger *trig)
+{
+	sensor_sample_fetch_chan(dev, SENSOR_CHAN_GYRO_XYZ);
+	lsm6dso_gyr_trig_cnt2++;
+}
+
+static void lsm6dso_temp_trig_handler_dil24(const struct device *dev,
+				      struct sensor_trigger *trig)
+{
+	sensor_sample_fetch_chan(dev, SENSOR_CHAN_DIE_TEMP);
+	lsm6dso_temp_trig_cnt2++;
 }
 #endif
 
@@ -79,12 +104,12 @@ static void lis2dw12_config(const struct device *lis2dw12)
 #endif
 }
 
-static void lsm6dso_config(const struct device *lsm6dso)
+static void lsm6dso_config(const struct device *lsm6dso, int odr)
 {
 	struct sensor_value odr_attr, fs_attr;
 
 	/* set LSM6DSO accel sampling frequency to 208 Hz */
-	odr_attr.val1 = 208;
+	odr_attr.val1 = odr;
 	odr_attr.val2 = 0;
 
 	if (sensor_attr_set(lsm6dso, SENSOR_CHAN_ACCEL_XYZ,
@@ -102,7 +127,7 @@ static void lsm6dso_config(const struct device *lsm6dso)
 	}
 
 	/* set LSM6DSO gyro sampling frequency to 208 Hz */
-	odr_attr.val1 = 208;
+	odr_attr.val1 = odr;
 	odr_attr.val2 = 0;
 
 	if (sensor_attr_set(lsm6dso, SENSOR_CHAN_GYRO_XYZ,
@@ -147,24 +172,10 @@ static void lsm6dso_config(const struct device *lsm6dso)
 		return;
 	}
 #endif
-
-#ifdef CONFIG_LSM6DSO_TRIGGER
-	struct sensor_trigger trig;
-
-	trig.type = SENSOR_TRIG_DATA_READY;
-	trig.chan = SENSOR_CHAN_ACCEL_XYZ;
-	sensor_trigger_set(lsm6dso, &trig, lsm6dso_acc_trig_handler);
-
-	trig.type = SENSOR_TRIG_DATA_READY;
-	trig.chan = SENSOR_CHAN_GYRO_XYZ;
-	sensor_trigger_set(lsm6dso, &trig, lsm6dso_gyr_trig_handler);
-
-	trig.type = SENSOR_TRIG_DATA_READY;
-	trig.chan = SENSOR_CHAN_DIE_TEMP;
-	sensor_trigger_set(lsm6dso, &trig, lsm6dso_temp_trig_handler);
-#endif
 }
 
+static const char *lsm6dso_shield = "LSM6DSO";
+static const char *lsm6dso_dil24_label = "LSM6DSO_SPI";
 void main(void)
 {
 #ifdef CONFIG_LSM6DSO_EXT_LPS22HH
@@ -174,13 +185,16 @@ void main(void)
 	struct sensor_value hum;
 #endif
 #ifdef CONFIG_LSM6DSO_ENABLE_TEMP
-	struct sensor_value die_temp;
+	struct sensor_value die_temp, die_temp2;
 #endif
 	struct sensor_value accel1[3], accel2[3];
 	struct sensor_value gyro[3];
 	struct sensor_value magn[3];
+	struct sensor_value accel_dil24[3], gyro_dil24[3];
+	struct sensor_value magn_dil24[3];
 	const struct device *lis2dw12 = device_get_binding(DT_LABEL(DT_INST(0, st_lis2dw12)));
-	const struct device *lsm6dso = device_get_binding(DT_LABEL(DT_INST(0, st_lsm6dso)));
+	const struct device *lsm6dso = device_get_binding(lsm6dso_shield);
+	const struct device *lsm6dso_dil24 = device_get_binding(lsm6dso_dil24_label);
 	int cnt = 1;
 
 	if (lis2dw12 == NULL) {
@@ -191,9 +205,33 @@ void main(void)
 		printf("Could not get LSM6DSO device\n");
 		return;
 	}
+	if (lsm6dso_dil24 == NULL) {
+		printf("Could not get LSM6DSO DIL24 device\n");
+		return;
+	}
 
 	lis2dw12_config(lis2dw12);
-	lsm6dso_config(lsm6dso);
+	lsm6dso_config(lsm6dso, 104);
+	lsm6dso_config(lsm6dso_dil24, 208);
+
+#ifdef CONFIG_LSM6DSO_TRIGGER
+	struct sensor_trigger trig;
+
+	trig.type = SENSOR_TRIG_DATA_READY;
+	trig.chan = SENSOR_CHAN_ACCEL_XYZ;
+	sensor_trigger_set(lsm6dso, &trig, lsm6dso_acc_trig_handler);
+	sensor_trigger_set(lsm6dso_dil24, &trig, lsm6dso_acc_trig_handler_dil24);
+
+	trig.type = SENSOR_TRIG_DATA_READY;
+	trig.chan = SENSOR_CHAN_GYRO_XYZ;
+	sensor_trigger_set(lsm6dso, &trig, lsm6dso_gyr_trig_handler);
+	sensor_trigger_set(lsm6dso_dil24, &trig, lsm6dso_gyr_trig_handler_dil24);
+
+	trig.type = SENSOR_TRIG_DATA_READY;
+	trig.chan = SENSOR_CHAN_DIE_TEMP;
+	sensor_trigger_set(lsm6dso, &trig, lsm6dso_temp_trig_handler);
+	sensor_trigger_set(lsm6dso_dil24, &trig, lsm6dso_temp_trig_handler_dil24);
+#endif
 
 	while (1) {
 		/* Get sensor samples */
@@ -209,17 +247,25 @@ void main(void)
 			printf("LSM6DSO Sensor sample update error\n");
 			return;
 		}
+		if (sensor_sample_fetch(lsm6dso_dil24) < 0) {
+			printf("LSM6DSO DIL24 Sensor sample update error\n");
+			return;
+		}
 #endif
 
 		/* Get sensor data */
 		sensor_channel_get(lis2dw12, SENSOR_CHAN_ACCEL_XYZ, accel2);
 		sensor_channel_get(lsm6dso, SENSOR_CHAN_ACCEL_XYZ, accel1);
 		sensor_channel_get(lsm6dso, SENSOR_CHAN_GYRO_XYZ, gyro);
+		sensor_channel_get(lsm6dso_dil24, SENSOR_CHAN_ACCEL_XYZ, accel_dil24);
+		sensor_channel_get(lsm6dso_dil24, SENSOR_CHAN_GYRO_XYZ, gyro_dil24);
 #ifdef CONFIG_LSM6DSO_ENABLE_TEMP
 		sensor_channel_get(lsm6dso, SENSOR_CHAN_DIE_TEMP, &die_temp);
+		sensor_channel_get(lsm6dso_dil24, SENSOR_CHAN_DIE_TEMP, &die_temp2);
 #endif
 #ifdef CONFIG_LSM6DSO_EXT_LIS2MDL
 		sensor_channel_get(lsm6dso, SENSOR_CHAN_MAGN_XYZ, magn);
+		sensor_channel_get(lsm6dso_dil24, SENSOR_CHAN_MAGN_XYZ, magn_dil24);
 #endif
 #ifdef CONFIG_LSM6DSO_EXT_LPS22HH
 		sensor_channel_get(lsm6dso, SENSOR_CHAN_AMBIENT_TEMP, &temp2);
@@ -251,10 +297,22 @@ void main(void)
 			sensor_value_to_double(&gyro[1]),
 			sensor_value_to_double(&gyro[2]));
 
+		printf("LSM6DSO_DIL24: Accel (m.s-2): x: %.3f, y: %.3f, z: %.3f\n",
+			sensor_value_to_double(&accel_dil24[0]),
+			sensor_value_to_double(&accel_dil24[1]),
+			sensor_value_to_double(&accel_dil24[2]));
+
+		printf("LSM6DSO_DIL24: GYro (dps): x: %.3f, y: %.3f, z: %.3f\n",
+			sensor_value_to_double(&gyro_dil24[0]),
+			sensor_value_to_double(&gyro_dil24[1]),
+			sensor_value_to_double(&gyro_dil24[2]));
+
 #ifdef CONFIG_LSM6DSO_ENABLE_TEMP
 		/* temperature */
 		printf("LSM6DSO: Temperature: %.1f C\n",
 		       sensor_value_to_double(&die_temp));
+		printf("LSM6DSO_DIL24: Temperature: %.1f C\n",
+		       sensor_value_to_double(&die_temp2));
 #endif
 
 #ifdef CONFIG_LSM6DSO_EXT_LIS2MDL
@@ -262,6 +320,10 @@ void main(void)
 		       sensor_value_to_double(&magn[0]),
 		       sensor_value_to_double(&magn[1]),
 		       sensor_value_to_double(&magn[2]));
+		printf("LSM6DSO_DIL24: Magn (gauss): x: %.3f, y: %.3f, z: %.3f\n",
+		       sensor_value_to_double(&magn_dil24[0]),
+		       sensor_value_to_double(&magn_dil24[1]),
+		       sensor_value_to_double(&magn_dil24[2]));
 #endif
 
 #ifdef CONFIG_LSM6DSO_EXT_LPS22HH
@@ -285,8 +347,16 @@ void main(void)
 #ifdef CONFIG_LSM6DSO_TRIGGER
 		printk("%d:: lsm6dso acc trig %d\n", cnt, lsm6dso_acc_trig_cnt);
 		printk("%d:: lsm6dso gyr trig %d\n", cnt, lsm6dso_gyr_trig_cnt);
+#ifdef CONFIG_LSM6DSO_ENABLE_TEMP
 		printk("%d:: lsm6dso temp trig %d\n", cnt,
 			lsm6dso_temp_trig_cnt);
+#endif
+		printk("%d:: lsm6dso_dil24 acc trig %d\n", cnt, lsm6dso_acc_trig_cnt2);
+		printk("%d:: lsm6dso_dil24 gyr trig %d\n", cnt, lsm6dso_gyr_trig_cnt2);
+#ifdef CONFIG_LSM6DSO_ENABLE_TEMP
+		printk("%d:: lsm6dso_dil24 temp trig %d\n", cnt,
+			lsm6dso_temp_trig_cnt2);
+#endif
 #endif
 
 		cnt++;
