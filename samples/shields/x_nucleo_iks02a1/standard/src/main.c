@@ -83,8 +83,13 @@ void main(void)
 		return;
 	}
 
+#ifdef CONFIG_IIS2DLPC_TRIGGER
 	iis2dlpc_config(iis2dlpc, 100, iis2dlpc_trigger_handler);
 	iis2dlpc_config(iis2dlpc_dil24, 400, iis2dlpc_trigger_handler2);
+#else
+	iis2dlpc_config(iis2dlpc, 100, NULL);
+	iis2dlpc_config(iis2dlpc_dil24, 400, NULL);
+#endif
 
 	while (1) {
 		/* Get sensor samples */
