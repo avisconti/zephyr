@@ -138,13 +138,13 @@ static int lis2dw12_handle_single_tap_int(const struct device *dev)
 	struct lis2dw12_data *data = dev->data;
 	sensor_trigger_handler_t handler = data->tap_handler;
 
-	struct sensor_trigger pulse_trig = {
+	struct sensor_trigger tap_trig = {
 		.type = SENSOR_TRIG_TAP,
 		.chan = SENSOR_CHAN_ALL,
 	};
 
 	if (handler) {
-		handler(dev, &pulse_trig);
+		handler(dev, &tap_trig);
 	}
 
 	return 0;
@@ -155,13 +155,13 @@ static int lis2dw12_handle_double_tap_int(const struct device *dev)
 	struct lis2dw12_data *data = dev->data;
 	sensor_trigger_handler_t handler = data->double_tap_handler;
 
-	struct sensor_trigger pulse_trig = {
+	struct sensor_trigger tap_trig = {
 		.type = SENSOR_TRIG_DOUBLE_TAP,
 		.chan = SENSOR_CHAN_ALL,
 	};
 
 	if (handler) {
-		handler(dev, &pulse_trig);
+		handler(dev, &tap_trig);
 	}
 
 	return 0;
