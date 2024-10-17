@@ -39,7 +39,7 @@ static inline int lis2dux12_set_range(const struct device *dev, uint8_t range)
 
 	switch (range) {
 	default:
-		LOG_ERR("range [%d] not supported.", range);
+		LOG_ERR("range %d not supported.", range);
 		return -EINVAL;
 	case LIS2DUX12_DT_FS_2G:
 		data->gain = lis2dux12_from_fs2g_to_mg(1);
@@ -59,99 +59,120 @@ static inline int lis2dux12_set_range(const struct device *dev, uint8_t range)
 	return 0;
 }
 
-const struct lis2dux12_chip_api st_lis2dux12_chip_api = {
-	.set_odr_raw = lis2dux12_set_odr_raw,
-	.set_range = lis2dux12_set_range,
-};
-
-#if 0
-int st_lps22df_init(const struct device *dev)
+static int lis2dux12_sample_fetch_accel(const struct device *dev)
 {
-	const struct lps2xdf_config *const cfg = dev->config;
+	struct lis2dux12_data *data = dev->data;
+	const struct lis2dux12_config *cfg = dev->config;
 	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
-	lps22df_id_t id;
-	lps22df_stat_t status;
-	uint8_t tries = 10;
-	int ret;
 
-#if DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps22df, i3c)
-	if (cfg->i3c.bus != NULL) {
-		struct lps2xdf_data *data = dev->data;
-		/*
-		 * Need to grab the pointer to the I3C device descriptor
-		 * before we can talk to the sensor.
-		 */
-		data->i3c_dev = i3c_device_find(cfg->i3c.bus, &cfg->i3c.dev_id);
-		if (data->i3c_dev == NULL) {
-			LOG_ERR("Cannot find I3C device descriptor");
-			return -ENODEV;
-		}
-	}
-#endif
+	/* fetch raw data sample */
+	lis2dux12_md_t mode = {.fs = data->range};
+	lis2dux12_xl_data_t xzy_data = {0};
 
-	if (lps22df_id_get(ctx, &id) < 0) {
-		LOG_ERR("%s: Not able to read dev id", dev->name);
+	if (lis2dux12_xl_data_get(ctx, &mode, &xzy_data) < 0) {
+		LOG_ERR("Failed to fetch raw data sample");
 		return -EIO;
 	}
 
-	if (id.whoami != LPS22DF_ID) {
-		LOG_ERR("%s: Invalid chip ID 0x%02x", dev->name, id.whoami);
+	data->sample_x = xzy_data.raw[0];
+	data->sample_y = xzy_data.raw[1];
+	data->sample_z = xzy_data.raw[2];
+
+	return 0;
+}
+
+#ifdef CONFIG_LIS2DUX12_ENABLE_TEMP
+static int lis2dux12_sample_fetch_temp(const struct device *dev)
+{
+	struct lis2dux12_data *data = dev->data;
+	const struct lis2dux12_config *cfg = dev->config;
+	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
+
+	/* fetch raw data sample */
+	lis2dux12_outt_data_t temp_data = {0};
+
+	if (lis2dux12_outt_data_get(ctx, &temp_data) < 0) {
+		LOG_ERR("Failed to fetch raw temperature data sample");
 		return -EIO;
 	}
 
-	LOG_DBG("%s: chip id 0x%x", dev->name, id.whoami);
-
-	/* Restore default configuration */
-	if (lps22df_init_set(ctx, LPS22DF_RESET) < 0) {
-		LOG_ERR("%s: Not able to reset device", dev->name);
-		return -EIO;
-	}
-
-	do {
-		if (!--tries) {
-			LOG_DBG("sw reset timed out");
-			return -ETIMEDOUT;
-		}
-		k_usleep(LPS2XDF_SWRESET_WAIT_TIME_US);
-
-		if (lps22df_status_get(ctx, &status) < 0) {
-			return -EIO;
-		}
-	} while (status.sw_reset);
-
-	/* Set bdu and if_inc recommended for driver usage */
-	if (lps22df_init_set(ctx, LPS22DF_DRV_RDY) < 0) {
-		LOG_ERR("%s: Not able to set device to ready state", dev->name);
-		return -EIO;
-	}
-
-	if (ON_I3C_BUS(cfg)) {
-		lps22df_bus_mode_t bus_mode;
-
-		/* Select bus interface */
-		lps22df_bus_mode_get(ctx, &bus_mode);
-		bus_mode.filter = LPS22DF_AUTO;
-		bus_mode.interface = LPS22DF_SEL_BY_HW;
-		lps22df_bus_mode_set(ctx, &bus_mode);
-	}
-
-	/* set sensor default odr */
-	LOG_DBG("%s: odr: %d", dev->name, cfg->odr);
-	ret = lps22df_set_odr_raw(dev, cfg->odr);
-	if (ret < 0) {
-		LOG_ERR("%s: Failed to set odr %d", dev->name, cfg->odr);
-		return ret;
-	}
-
-#ifdef CONFIG_LPS2XDF_TRIGGER
-	if (cfg->trig_enabled) {
-		if (lps2xdf_init_interrupt(dev, DEVICE_VARIANT_LPS22DF) < 0) {
-			LOG_ERR("Failed to initialize interrupt.");
-			return -EIO;
-		}
-	}
-#endif
+	data->sample_temp = temp_data.heat.deg_c;
 
 	return 0;
 }
 #endif
+
+const struct lis2dux12_chip_api st_lis2dux12_chip_api = {
+	.set_odr_raw = lis2dux12_set_odr_raw,
+	.set_range = lis2dux12_set_range,
+	.sample_fetch_accel = lis2dux12_sample_fetch_accel,
+#ifdef CONFIG_LIS2DUX12_ENABLE_TEMP
+	.sample_fetch_temp = lis2dux12_sample_fetch_temp,
+#endif
+};
+
+int st_lis2dux12_init(const struct device *dev)
+{
+	const struct lis2dux12_config *const cfg = dev->config;
+	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
+	uint8_t chip_id;
+	int ret;
+
+	lis2dux12_exit_deep_power_down(ctx);
+	k_busy_wait(25000);
+
+	/* check chip ID */
+	ret = lis2dux12_device_id_get(ctx, &chip_id);
+	if (ret < 0) {
+		LOG_ERR("%s: Not able to read dev id", dev->name);
+		return ret;
+	}
+
+	if (chip_id != LIS2DUX12_ID) {
+		LOG_ERR("%s: Invalid chip ID 0x%02x", dev->name, chip_id);
+		return -EINVAL;
+	}
+
+	/* reset device */
+	ret = lis2dux12_init_set(ctx, LIS2DUX12_RESET);
+	if (ret < 0) {
+		return ret;
+	}
+
+	k_busy_wait(100);
+
+	LOG_INF("%s: chip id 0x%x", dev->name, chip_id);
+
+	/* Set bdu and if_inc recommended for driver usage */
+	lis2dux12_init_set(ctx, LIS2DUX12_SENSOR_ONLY_ON);
+
+	lis2dux12_timestamp_set(ctx, PROPERTY_ENABLE);
+
+#ifdef CONFIG_LIS2DUX12_TRIGGER
+	if (cfg->trig_enabled) {
+		ret = lis2dux12_trigger_init(dev);
+		if (ret < 0) {
+			LOG_ERR("%s: Failed to initialize triggers", dev->name);
+			return ret;
+		}
+	}
+#endif
+
+	/* set sensor default pm and odr */
+	LOG_DBG("%s: pm: %d, odr: %d", dev->name, cfg->pm, cfg->odr);
+	ret = lis2dux12_set_odr_raw(dev, cfg->odr);
+	if (ret < 0) {
+		LOG_ERR("%s: odr init error (12.5 Hz)", dev->name);
+		return ret;
+	}
+
+	/* set sensor default scale (used to convert sample values) */
+	LOG_DBG("%s: range is %d", dev->name, cfg->range);
+	ret = lis2dux12_set_range(dev, cfg->range);
+	if (ret < 0) {
+		LOG_ERR("%s: range init error %d", dev->name, cfg->range);
+		return ret;
+	}
+
+	return 0;
+}

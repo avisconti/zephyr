@@ -142,71 +142,34 @@ static int lis2dux12_attr_set(const struct device *dev, enum sensor_channel chan
 	return 0;
 }
 
-static int lis2dux12_sample_fetch_accel(const struct device *dev)
-{
-	struct lis2dux12_data *data = dev->data;
-	const struct lis2dux12_config *cfg = dev->config;
-	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
-
-	/* fetch raw data sample */
-	lis2dux12_md_t mode = {.fs = data->range};
-	lis2dux12_xl_data_t xzy_data = {0};
-
-	if (lis2dux12_xl_data_get(ctx, &mode, &xzy_data) < 0) {
-		LOG_ERR("Failed to fetch raw data sample");
-		return -EIO;
-	}
-
-	data->sample_x = xzy_data.raw[0];
-	data->sample_y = xzy_data.raw[1];
-	data->sample_z = xzy_data.raw[2];
-
-	return 0;
-}
-
-#ifdef CONFIG_LIS2DUX12_ENABLE_TEMP
-static int lis2dux12_sample_fetch_temp(const struct device *dev)
-{
-	struct lis2dux12_data *data = dev->data;
-	const struct lis2dux12_config *cfg = dev->config;
-	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
-
-	/* fetch raw data sample */
-	lis2dux12_outt_data_t temp_data = {0};
-
-	if (lis2dux12_outt_data_get(ctx, &temp_data) < 0) {
-		LOG_ERR("Failed to fetch raw temperature data sample");
-		return -EIO;
-	}
-
-	data->sample_temp = temp_data.heat.deg_c;
-
-	return 0;
-}
-#endif
-
 static int lis2dux12_sample_fetch(const struct device *dev, enum sensor_channel chan)
 {
+	const struct lis2dux12_config *const cfg = dev->config;
+	const struct lis2dux12_chip_api *chip_api = cfg->chip_api;
+	int ret;
+
 	switch (chan) {
 	case SENSOR_CHAN_ACCEL_XYZ:
-		lis2dux12_sample_fetch_accel(dev);
+		ret = chip_api->sample_fetch_accel(dev);
 		break;
 #if defined(CONFIG_LIS2DUX12_ENABLE_TEMP)
 	case SENSOR_CHAN_DIE_TEMP:
-		lis2dux12_sample_fetch_temp(dev);
+		ret = chip_api->sample_fetch_temp(dev);
 		break;
 #endif
 	case SENSOR_CHAN_ALL:
-		lis2dux12_sample_fetch_accel(dev);
+		ret = chip_api->sample_fetch_accel(dev);
+		if (ret != 0)
+			break;
 #if defined(CONFIG_LIS2DUX12_ENABLE_TEMP)
-		lis2dux12_sample_fetch_temp(dev);
+		ret = chip_api->sample_fetch_temp(dev);
 #endif
 		break;
 	default:
 		return -ENOTSUP;
 	}
 
-	return 0;
+	return ret;
 }
 
 static inline void lis2dux12_convert(struct sensor_value *val, int raw_val, float gain)
@@ -267,6 +230,7 @@ static const struct sensor_driver_api lis2dux12_driver_api = {
 	.channel_get = lis2dux12_channel_get,
 };
 
+#if 1
 static int lis2dux12_init(const struct device *dev)
 {
 	const struct lis2dux12_config *const cfg = dev->config;
@@ -333,6 +297,7 @@ static int lis2dux12_init(const struct device *dev)
 
 	return 0;
 }
+#endif
 
 /*
  * Device creation macro, shared by LIS2DUX12_DEFINE_SPI() and
@@ -367,6 +332,7 @@ static int lis2dux12_init(const struct device *dev)
 		.stmemsc_cfg = {							\
 			.spi = SPI_DT_SPEC_INST_GET(inst, LIS2DUX12_SPI_OPERATION, 0),	\
 		},									\
+		.chip_api = &st_lis2dux12_chip_api,					\
 		.range = DT_INST_PROP(inst, range),					\
 		.pm = DT_INST_PROP(inst, power_mode),					\
 		.odr = DT_INST_PROP(inst, odr),						\

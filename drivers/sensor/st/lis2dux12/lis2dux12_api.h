@@ -19,6 +19,6 @@
 
 extern const struct lis2dux12_chip_api st_lis2dux12_chip_api;
 
-//int st_lis2dux12_init(const struct device *dev);
+int st_lis2dux12_init(const struct device *dev);
 
 #endif /* ZEPHYR_DRIVERS_SENSOR_LIS2DUX12_ST_LIS2DUX12_H_ */
