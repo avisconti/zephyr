@@ -25,10 +25,12 @@
 #include <zephyr/drivers/i2c.h>
 #endif /* DT_ANY_INST_ON_BUS_STATUS_OKAY(i2c) */
 
-typedef int32_t (*api_lis2dux12_mode_set_odr_raw)(const struct device *dev, uint8_t odr);
+typedef int32_t (*api_lis2dux12_set_odr_raw)(const struct device *dev, uint8_t odr);
+typedef int32_t (*api_lis2dux12_set_range)(const struct device *dev, uint8_t range);
 
 struct lis2dux12_chip_api {
-	api_lis2dux12_mode_set_odr_raw mode_set_odr_raw;
+	api_lis2dux12_set_odr_raw set_odr_raw;
+	api_lis2dux12_set_range	set_range;
 };
 
 struct lis2dux12_config {

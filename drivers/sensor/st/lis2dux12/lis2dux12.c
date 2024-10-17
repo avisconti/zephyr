@@ -18,7 +18,6 @@
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/util_macro.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/dt-bindings/sensor/lis2dux12.h>
 
 #include "lis2dux12.h"
 
@@ -27,55 +26,6 @@
 #endif
 
 LOG_MODULE_REGISTER(LIS2DUX12, CONFIG_SENSOR_LOG_LEVEL);
-
-#if 0
-static int lis2dux12_set_odr(const struct device *dev, uint8_t odr)
-{
-	struct lis2dux12_data *data = dev->data;
-	const struct lis2dux12_config *cfg = dev->config;
-	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
-	lis2dux12_md_t mode = {.odr = odr, .fs = data->range};
-
-	data->odr = odr;
-	return lis2dux12_mode_set(ctx, &mode);
-}
-#endif
-
-static int lis2dux12_set_range(const struct device *dev, uint8_t range)
-{
-	int err;
-	struct lis2dux12_data *data = dev->data;
-	const struct lis2dux12_config *cfg = dev->config;
-	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
-	lis2dux12_md_t val = { .odr = data->odr, .fs = range };
-
-	err = lis2dux12_mode_set(ctx, &val);
-
-	if (err) {
-		return err;
-	}
-
-	switch (range) {
-	default:
-		LOG_ERR("range [%d] not supported.", range);
-		return -EINVAL;
-	case LIS2DUX12_DT_FS_2G:
-		data->gain = lis2dux12_from_fs2g_to_mg(1);
-		break;
-	case LIS2DUX12_DT_FS_4G:
-		data->gain = lis2dux12_from_fs4g_to_mg(1);
-		break;
-	case LIS2DUX12_DT_FS_8G:
-		data->gain = lis2dux12_from_fs8g_to_mg(1);
-		break;
-	case LIS2DUX12_DT_FS_16G:
-		data->gain = lis2dux12_from_fs16g_to_mg(1);
-		break;
-	}
-
-	data->range = range;
-	return 0;
-}
 
 #define FOREACH_ODR_ENUM(ODR_VAL)			\
 	ODR_VAL(LIS2DUX12_DT_ODR_OFF, 0.0f)		\
@@ -119,6 +69,8 @@ static int lis2dux12_set_fs(const struct device *dev, int16_t fs)
 {
 	int ret;
 	uint8_t range;
+	const struct lis2dux12_config *const cfg = dev->config;
+	const struct lis2dux12_chip_api *chip_api = cfg->chip_api;
 
 	switch (fs) {
 	case 2:
@@ -138,7 +90,7 @@ static int lis2dux12_set_fs(const struct device *dev, int16_t fs)
 		return -EINVAL;
 	}
 
-	ret = lis2dux12_set_range(dev, range);
+	ret = chip_api->set_range(dev, range);
 	if (ret < 0) {
 		LOG_ERR("%s: range init error %d", dev->name, range);
 		return ret;
@@ -167,7 +119,7 @@ static int lis2dux12_accel_config(const struct device *dev, enum sensor_channel 
 
 		LOG_DBG("%s: set odr to %d Hz", dev->name, val->val1);
 
-		return chip_api->mode_set_odr_raw(dev, odr_val);
+		return chip_api->set_odr_raw(dev, odr_val);
 	default:
 		LOG_ERR("Accel attribute not supported.");
 		return -ENOTSUP;
@@ -365,7 +317,7 @@ static int lis2dux12_init(const struct device *dev)
 
 	/* set sensor default pm and odr */
 	LOG_DBG("%s: pm: %d, odr: %d", dev->name, cfg->pm, cfg->odr);
-	ret = chip_api->mode_set_odr_raw(dev, cfg->odr);
+	ret = chip_api->set_odr_raw(dev, cfg->odr);
 	if (ret < 0) {
 		LOG_ERR("%s: odr init error (12.5 Hz)", dev->name);
 		return ret;
@@ -373,7 +325,7 @@ static int lis2dux12_init(const struct device *dev)
 
 	/* set sensor default scale (used to convert sample values) */
 	LOG_DBG("%s: range is %d", dev->name, cfg->range);
-	ret = lis2dux12_set_range(dev, cfg->range);
+	ret = chip_api->set_range(dev, cfg->range);
 	if (ret < 0) {
 		LOG_ERR("%s: range init error %d", dev->name, cfg->range);
 		return ret;

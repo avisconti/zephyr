@@ -10,6 +10,7 @@
 #include <stmemsc.h>
 
 #include "lis2dux12_reg.h"
+#include <zephyr/dt-bindings/sensor/lis2dux12.h>
 
 #include <zephyr/drivers/sensor.h>
 

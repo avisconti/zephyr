@@ -12,7 +12,7 @@
 
 LOG_MODULE_DECLARE(LIS2DUX12, CONFIG_SENSOR_LOG_LEVEL);
 
-static inline int lis2dux12_mode_set_odr_raw(const struct device *dev, uint8_t odr)
+static inline int lis2dux12_set_odr_raw(const struct device *dev, uint8_t odr)
 {
 	struct lis2dux12_data *data = dev->data;
 	const struct lis2dux12_config *cfg = dev->config;
@@ -23,8 +23,45 @@ static inline int lis2dux12_mode_set_odr_raw(const struct device *dev, uint8_t o
 	return lis2dux12_mode_set(ctx, &mode);
 }
 
+static inline int lis2dux12_set_range(const struct device *dev, uint8_t range)
+{
+	int err;
+	struct lis2dux12_data *data = dev->data;
+	const struct lis2dux12_config *cfg = dev->config;
+	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
+	lis2dux12_md_t val = { .odr = data->odr, .fs = range };
+
+	err = lis2dux12_mode_set(ctx, &val);
+
+	if (err) {
+		return err;
+	}
+
+	switch (range) {
+	default:
+		LOG_ERR("range [%d] not supported.", range);
+		return -EINVAL;
+	case LIS2DUX12_DT_FS_2G:
+		data->gain = lis2dux12_from_fs2g_to_mg(1);
+		break;
+	case LIS2DUX12_DT_FS_4G:
+		data->gain = lis2dux12_from_fs4g_to_mg(1);
+		break;
+	case LIS2DUX12_DT_FS_8G:
+		data->gain = lis2dux12_from_fs8g_to_mg(1);
+		break;
+	case LIS2DUX12_DT_FS_16G:
+		data->gain = lis2dux12_from_fs16g_to_mg(1);
+		break;
+	}
+
+	data->range = range;
+	return 0;
+}
+
 const struct lis2dux12_chip_api st_lis2dux12_chip_api = {
-	.mode_set_odr_raw = lis2dux12_mode_set_odr_raw,
+	.set_odr_raw = lis2dux12_set_odr_raw,
+	.set_range = lis2dux12_set_range,
 };
 
 #if 0
@@ -100,7 +137,7 @@ int st_lps22df_init(const struct device *dev)
 
 	/* set sensor default odr */
 	LOG_DBG("%s: odr: %d", dev->name, cfg->odr);
-	ret = lps22df_mode_set_odr_raw(dev, cfg->odr);
+	ret = lps22df_set_odr_raw(dev, cfg->odr);
 	if (ret < 0) {
 		LOG_ERR("%s: Failed to set odr %d", dev->name, cfg->odr);
 		return ret;
