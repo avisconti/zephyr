@@ -61,35 +61,6 @@ static void lis2dux12_work_cb(struct k_work *work)
 }
 #endif
 
-static int lis2dux12_init_interrupt(const struct device *dev)
-{
-	const struct lis2dux12_config *cfg = dev->config;
-	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
-	lis2dux12_pin_int_route_t route;
-	int err;
-
-	/* Enable pulsed mode */
-	err = lis2dux12_data_ready_mode_set(ctx, LIS2DUX12_DRDY_PULSED);
-	if (err < 0) {
-		return err;
-	}
-
-	/* route data-ready interrupt on int1 */
-	err = lis2dux12_pin_int1_route_get(ctx, &route);
-	if (err < 0) {
-		return err;
-	}
-
-	route.drdy = 1;
-
-	err = lis2dux12_pin_int1_route_set(ctx, &route);
-	if (err < 0) {
-		return err;
-	}
-
-	return 0;
-}
-
 int lis2dux12_trigger_init(const struct device *dev)
 {
 	struct lis2dux12_data *data = dev->data;
@@ -140,9 +111,7 @@ int lis2dux12_trigger_set(const struct device *dev, const struct sensor_trigger 
 {
 	struct lis2dux12_data *data = dev->data;
 	const struct lis2dux12_config *cfg = dev->config;
-	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
-	lis2dux12_xl_data_t xldata;
-	lis2dux12_md_t mode = {.fs = cfg->range};
+	const struct lis2dux12_chip_api *chip_api = cfg->chip_api;
 	int ret;
 
 	if (!cfg->trig_enabled) {
@@ -168,10 +137,15 @@ int lis2dux12_trigger_set(const struct device *dev, const struct sensor_trigger 
 	}
 
 	/* re-trigger lost interrupt */
-	lis2dux12_xl_data_get(ctx, &mode, &xldata);
+	chip_api->sample_fetch_accel(dev);
 
 	data->data_ready_trigger = trig;
 
-	lis2dux12_init_interrupt(dev);
+	ret = chip_api->init_interrupt(dev);
+	if (ret < 0) {
+		LOG_ERR("%s: Not able to initialize device interrupt", dev->name);
+		return ret;
+	}
+
 	return gpio_pin_interrupt_configure_dt(data->drdy_gpio, GPIO_INT_EDGE_TO_ACTIVE);
 }

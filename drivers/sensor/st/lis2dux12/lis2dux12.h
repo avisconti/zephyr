@@ -32,7 +32,8 @@ typedef int32_t (*api_lis2dux12_sample_fetch_accel)(const struct device *dev);
 typedef int32_t (*api_lis2dux12_sample_fetch_temp)(const struct device *dev);
 #endif
 #ifdef CONFIG_LIS2DUX12_TRIGGER
-typedef int32_t (*api_lis2dux12_handle_interrupt)(const struct device *dev);
+typedef void (*api_lis2dux12_handle_interrupt)(const struct device *dev);
+typedef int32_t (*api_lis2dux12_init_interrupt)(const struct device *dev);
 #endif
 
 struct lis2dux12_chip_api {
@@ -44,6 +45,7 @@ struct lis2dux12_chip_api {
 #endif
 #ifdef CONFIG_LIS2DUX12_TRIGGER
 	api_lis2dux12_handle_interrupt handle_interrupt;
+	api_lis2dux12_init_interrupt init_interrupt;
 #endif
 };
 

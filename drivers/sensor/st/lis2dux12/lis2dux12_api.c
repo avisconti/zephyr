@@ -12,7 +12,7 @@
 
 LOG_MODULE_DECLARE(LIS2DUX12, CONFIG_SENSOR_LOG_LEVEL);
 
-static inline int lis2dux12_set_odr_raw(const struct device *dev, uint8_t odr)
+static int32_t lis2dux12_set_odr_raw(const struct device *dev, uint8_t odr)
 {
 	struct lis2dux12_data *data = dev->data;
 	const struct lis2dux12_config *cfg = dev->config;
@@ -23,7 +23,7 @@ static inline int lis2dux12_set_odr_raw(const struct device *dev, uint8_t odr)
 	return lis2dux12_mode_set(ctx, &mode);
 }
 
-static inline int lis2dux12_set_range(const struct device *dev, uint8_t range)
+static int32_t lis2dux12_set_range(const struct device *dev, uint8_t range)
 {
 	int err;
 	struct lis2dux12_data *data = dev->data;
@@ -59,7 +59,7 @@ static inline int lis2dux12_set_range(const struct device *dev, uint8_t range)
 	return 0;
 }
 
-static int lis2dux12_sample_fetch_accel(const struct device *dev)
+static int32_t lis2dux12_sample_fetch_accel(const struct device *dev)
 {
 	struct lis2dux12_data *data = dev->data;
 	const struct lis2dux12_config *cfg = dev->config;
@@ -82,7 +82,7 @@ static int lis2dux12_sample_fetch_accel(const struct device *dev)
 }
 
 #ifdef CONFIG_LIS2DUX12_ENABLE_TEMP
-static int lis2dux12_sample_fetch_temp(const struct device *dev)
+static int32_t lis2dux12_sample_fetch_temp(const struct device *dev)
 {
 	struct lis2dux12_data *data = dev->data;
 	const struct lis2dux12_config *cfg = dev->config;
@@ -127,6 +127,35 @@ exit:
 		LOG_ERR("%s: Not able to configure pin_int", dev->name);
 	}
 }
+
+static int32_t lis2dux12_init_interrupt(const struct device *dev)
+{
+	const struct lis2dux12_config *cfg = dev->config;
+	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
+	lis2dux12_pin_int_route_t route;
+	int err;
+
+	/* Enable pulsed mode */
+	err = lis2dux12_data_ready_mode_set(ctx, LIS2DUX12_DRDY_PULSED);
+	if (err < 0) {
+		return err;
+	}
+
+	/* route data-ready interrupt on int1 */
+	err = lis2dux12_pin_int1_route_get(ctx, &route);
+	if (err < 0) {
+		return err;
+	}
+
+	route.drdy = 1;
+
+	err = lis2dux12_pin_int1_route_set(ctx, &route);
+	if (err < 0) {
+		return err;
+	}
+
+	return 0;
+}
 #endif
 
 const struct lis2dux12_chip_api st_lis2dux12_chip_api = {
@@ -138,6 +167,7 @@ const struct lis2dux12_chip_api st_lis2dux12_chip_api = {
 #endif
 #ifdef CONFIG_LIS2DUX12_TRIGGER
 	.handle_interrupt = lis2dux12_handle_interrupt,
+	.init_interrupt = lis2dux12_init_interrupt,
 #endif
 };
 
