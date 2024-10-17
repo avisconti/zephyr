@@ -102,12 +102,42 @@ static int lis2dux12_sample_fetch_temp(const struct device *dev)
 }
 #endif
 
+#ifdef CONFIG_LIS2DUX12_TRIGGER
+static void lis2dux12_handle_interrupt(const struct device *dev)
+{
+	struct lis2dux12_data *lis2dux12 = dev->data;
+	const struct lis2dux12_config *cfg = dev->config;
+	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
+	lis2dux12_all_sources_t sources;
+	int ret;
+
+	lis2dux12_all_sources_get(ctx, &sources);
+
+	if (sources.drdy == 0) {
+		goto exit; /* spurious interrupt */
+	}
+
+	if (lis2dux12->data_ready_handler != NULL) {
+		lis2dux12->data_ready_handler(dev, lis2dux12->data_ready_trigger);
+	}
+
+exit:
+	ret = gpio_pin_interrupt_configure_dt(lis2dux12->drdy_gpio, GPIO_INT_EDGE_TO_ACTIVE);
+	if (ret < 0) {
+		LOG_ERR("%s: Not able to configure pin_int", dev->name);
+	}
+}
+#endif
+
 const struct lis2dux12_chip_api st_lis2dux12_chip_api = {
 	.set_odr_raw = lis2dux12_set_odr_raw,
 	.set_range = lis2dux12_set_range,
 	.sample_fetch_accel = lis2dux12_sample_fetch_accel,
 #ifdef CONFIG_LIS2DUX12_ENABLE_TEMP
 	.sample_fetch_temp = lis2dux12_sample_fetch_temp,
+#endif
+#ifdef CONFIG_LIS2DUX12_TRIGGER
+	.handle_interrupt = lis2dux12_handle_interrupt,
 #endif
 };
 

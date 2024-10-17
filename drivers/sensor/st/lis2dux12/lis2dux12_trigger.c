@@ -35,41 +35,16 @@ static void lis2dux12_gpio_callback(const struct device *dev, struct gpio_callba
 #endif
 }
 
-static void lis2dux12_handle_drdy_int(const struct device *dev)
-{
-	struct lis2dux12_data *data = dev->data;
-
-	if (data->data_ready_handler != NULL) {
-		data->data_ready_handler(dev, data->data_ready_trigger);
-	}
-}
-
-static void lis2dux12_handle_int(const struct device *dev)
-{
-	struct lis2dux12_data *lis2dux12 = dev->data;
-	const struct lis2dux12_config *cfg = dev->config;
-	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
-	lis2dux12_all_sources_t sources;
-	int ret;
-
-	lis2dux12_all_sources_get(ctx, &sources);
-
-	if (sources.drdy) {
-		lis2dux12_handle_drdy_int(dev);
-	}
-
-	ret = gpio_pin_interrupt_configure_dt(lis2dux12->drdy_gpio, GPIO_INT_EDGE_TO_ACTIVE);
-	if (ret < 0) {
-		LOG_ERR("%s: Not able to configure pin_int", dev->name);
-	}
-}
-
 #ifdef CONFIG_LIS2DUX12_TRIGGER_OWN_THREAD
 static void lis2dux12_thread(struct lis2dux12_data *data)
 {
+	const struct device *dev = data->dev;
+	const struct lis2dux12_config *const cfg = dev->config;
+	const struct lis2dux12_chip_api *chip_api = cfg->chip_api;
+
 	while (1) {
 		k_sem_take(&data->trig_sem, K_FOREVER);
-		lis2dux12_handle_int(data->dev);
+		chip_api->handle_interrupt(dev);
 	}
 }
 #endif
@@ -78,8 +53,11 @@ static void lis2dux12_thread(struct lis2dux12_data *data)
 static void lis2dux12_work_cb(struct k_work *work)
 {
 	struct lis2dux12_data *data = CONTAINER_OF(work, struct lis2dux12_data, work);
+	const struct device *dev = data->dev;
+	const struct lis2dux12_config *const cfg = dev->config;
+	const struct lis2dux12_chip_api *chip_api = cfg->chip_api;
 
-	lis2dux12_handle_int(data->dev);
+	chip_api->handle_interrupt(dev);
 }
 #endif
 

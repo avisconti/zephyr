@@ -30,7 +30,10 @@ typedef int32_t (*api_lis2dux12_set_range)(const struct device *dev, uint8_t ran
 typedef int32_t (*api_lis2dux12_sample_fetch_accel)(const struct device *dev);
 #ifdef CONFIG_LIS2DUX12_ENABLE_TEMP
 typedef int32_t (*api_lis2dux12_sample_fetch_temp)(const struct device *dev);
- #endif
+#endif
+#ifdef CONFIG_LIS2DUX12_TRIGGER
+typedef int32_t (*api_lis2dux12_handle_interrupt)(const struct device *dev);
+#endif
 
 struct lis2dux12_chip_api {
 	api_lis2dux12_set_odr_raw set_odr_raw;
@@ -38,6 +41,9 @@ struct lis2dux12_chip_api {
 	api_lis2dux12_sample_fetch_accel sample_fetch_accel;
 #ifdef CONFIG_LIS2DUX12_ENABLE_TEMP
 	api_lis2dux12_sample_fetch_temp sample_fetch_temp;
+#endif
+#ifdef CONFIG_LIS2DUX12_TRIGGER
+	api_lis2dux12_handle_interrupt handle_interrupt;
 #endif
 };
 
