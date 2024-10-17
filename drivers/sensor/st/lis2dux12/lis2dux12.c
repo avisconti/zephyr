@@ -22,8 +22,13 @@
 
 #include "lis2dux12.h"
 
+#if DT_HAS_COMPAT_STATUS_OKAY(st_lis2dux12)
+#include "lis2dux12_api.h"
+#endif
+
 LOG_MODULE_REGISTER(LIS2DUX12, CONFIG_SENSOR_LOG_LEVEL);
 
+#if 0
 static int lis2dux12_set_odr(const struct device *dev, uint8_t odr)
 {
 	struct lis2dux12_data *data = dev->data;
@@ -34,6 +39,7 @@ static int lis2dux12_set_odr(const struct device *dev, uint8_t odr)
 	data->odr = odr;
 	return lis2dux12_mode_set(ctx, &mode);
 }
+#endif
 
 static int lis2dux12_set_range(const struct device *dev, uint8_t range)
 {
@@ -146,6 +152,8 @@ static int lis2dux12_accel_config(const struct device *dev, enum sensor_channel 
 				  enum sensor_attribute attr, const struct sensor_value *val)
 {
 	int odr_val;
+	const struct lis2dux12_config *const cfg = dev->config;
+	const struct lis2dux12_chip_api *chip_api = cfg->chip_api;
 
 	switch (attr) {
 	case SENSOR_ATTR_FULL_SCALE:
@@ -159,7 +167,7 @@ static int lis2dux12_accel_config(const struct device *dev, enum sensor_channel 
 
 		LOG_DBG("%s: set odr to %d Hz", dev->name, val->val1);
 
-		return lis2dux12_set_odr(dev, odr_val);
+		return chip_api->mode_set_odr_raw(dev, odr_val);
 	default:
 		LOG_ERR("Accel attribute not supported.");
 		return -ENOTSUP;
@@ -310,6 +318,7 @@ static const struct sensor_driver_api lis2dux12_driver_api = {
 static int lis2dux12_init(const struct device *dev)
 {
 	const struct lis2dux12_config *const cfg = dev->config;
+	const struct lis2dux12_chip_api *chip_api = cfg->chip_api;
 	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
 	uint8_t chip_id;
 	int ret;
@@ -356,7 +365,7 @@ static int lis2dux12_init(const struct device *dev)
 
 	/* set sensor default pm and odr */
 	LOG_DBG("%s: pm: %d, odr: %d", dev->name, cfg->pm, cfg->odr);
-	ret = lis2dux12_set_odr(dev, cfg->odr);
+	ret = chip_api->mode_set_odr_raw(dev, cfg->odr);
 	if (ret < 0) {
 		LOG_ERR("%s: odr init error (12.5 Hz)", dev->name);
 		return ret;
@@ -424,6 +433,7 @@ static int lis2dux12_init(const struct device *dev)
 		.stmemsc_cfg = {							\
 			.i2c = I2C_DT_SPEC_INST_GET(inst),				\
 		},									\
+		.chip_api = &st_lis2dux12_chip_api,					\
 		.range = DT_INST_PROP(inst, range),					\
 		.pm = DT_INST_PROP(inst, power_mode),					\
 		.odr = DT_INST_PROP(inst, odr),						\

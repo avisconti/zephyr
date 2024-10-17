@@ -25,6 +25,12 @@
 #include <zephyr/drivers/i2c.h>
 #endif /* DT_ANY_INST_ON_BUS_STATUS_OKAY(i2c) */
 
+typedef int32_t (*api_lis2dux12_mode_set_odr_raw)(const struct device *dev, uint8_t odr);
+
+struct lis2dux12_chip_api {
+	api_lis2dux12_mode_set_odr_raw mode_set_odr_raw;
+};
+
 struct lis2dux12_config {
 	stmdev_ctx_t ctx;
 	union {
@@ -44,6 +50,8 @@ struct lis2dux12_config {
 	uint8_t drdy_pin;
 	bool trig_enabled;
 #endif
+
+	const struct lis2dux12_chip_api *chip_api;
 };
 
 struct lis2dux12_data {
