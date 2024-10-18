@@ -45,4 +45,16 @@
 		drdy-pulsed;
 		drdy-gpios =  <&arduino_header 12 GPIO_ACTIVE_HIGH>; /* D6 (PB10) */
 	};
+
+	//lis2dux12_1e_x_nucleo_iks01a4: lis2dux12@19 {
+	//	compatible = "st,lis2dux12";
+	//	reg = <0x19>;
+	//	int1-gpios =  <&arduino_header 3 GPIO_ACTIVE_HIGH>; /* A3 */
+	//};
+	lis2duxs12_1e_x_nucleo_iks01a4: lis2duxs12@19 {
+		compatible = "st,lis2duxs12";
+		reg = <0x19>;
+		int1-gpios =  <&arduino_header 3 GPIO_ACTIVE_HIGH>; /* A3 */
+	};
+
 };
