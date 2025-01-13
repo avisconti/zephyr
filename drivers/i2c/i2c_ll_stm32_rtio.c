@@ -141,15 +141,10 @@ int i2c_stm32_error(const struct device *dev)
 	struct i2c_stm32_data_rtio *data = dev->data;
 	struct i2c_rtio *ctx = data->ctx;
 	I2C_TypeDef *i2c = cfg->i2c;
-	int ret;
+	int ret = 0;
 
 	if (LL_I2C_IsActiveFlag_ARLO(i2c)) {
 		LL_I2C_ClearFlag_ARLO(i2c);
-		ret = -EIO;
-	}
-
-	if (LL_I2C_IsActiveFlag_BERR(i2c)) {
-		LL_I2C_ClearFlag_BERR(i2c);
 		ret = -EIO;
 	}
 
@@ -352,13 +347,13 @@ static bool i2c_stm32_start(const struct device *dev)
 	switch (sqe->op) {
 	case RTIO_OP_RX:
 		return i2c_stm32_msg_start(dev, I2C_MSG_READ | sqe->iodev_flags,
-				      sqe->buf, sqe->buf_len, dt_spec->addr);
+				      sqe->rx.buf, sqe->rx.buf_len, dt_spec->addr);
 	case RTIO_OP_TINY_TX:
 		return i2c_stm32_msg_start(dev,  sqe->iodev_flags,
-				      sqe->tiny_buf, sqe->tiny_buf_len, dt_spec->addr);
+				      sqe->tiny_tx.buf, sqe->tiny_tx.buf_len, dt_spec->addr);
 	case RTIO_OP_TX:
 		return i2c_stm32_msg_start(dev, sqe->iodev_flags,
-				      sqe->buf, sqe->buf_len, dt_spec->addr);
+				      (uint8_t*)sqe->tx.buf, sqe->tx.buf_len, dt_spec->addr);
 	case RTIO_OP_I2C_CONFIGURE:
 		res = i2c_stm32_do_configure(dev, sqe->i2c_config);
 		return i2c_rtio_complete(data->ctx, res);
