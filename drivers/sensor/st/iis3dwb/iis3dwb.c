@@ -444,7 +444,10 @@ static int iis3dwb_init(const struct device *dev)
 			(.fifo_wtm = DT_INST_PROP(inst, fifo_watermark),		\
 			.accel_batch  = DT_INST_PROP(inst, accel_fifo_batch_rate),	\
 			.temp_batch  = DT_INST_PROP(inst, temp_fifo_batch_rate),	\
-			.ts_batch  = DT_INST_PROP(inst, timestamp_fifo_batch_rate),))	\
+			.ts_batch  = DT_INST_PROP(inst, timestamp_fifo_batch_rate),	\
+			.wakeup_ths_weight  = DT_INST_PROP(inst, wakeup_ths_weight),	\
+			.wakeup_threshold  = DT_INST_PROP(inst, wakeup_threshold),	\
+			.wakeup_duration  = DT_INST_PROP(inst, wakeup_duration),))	\
 											\
 		IF_ENABLED(UTIL_OR(DT_INST_NODE_HAS_PROP(inst, int1_gpios),		\
 				   DT_INST_NODE_HAS_PROP(inst, int2_gpios)),		\

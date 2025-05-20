@@ -152,3 +152,37 @@ properties:
       - 0x3 # IIS3DWB_DT_DEC_TS_32
 
     enum: [0x00, 0x01, 0x02, 0x03]
+
+  wakeup-duration:
+    type: int
+    default: 0x0
+    description: |
+      Specify the wakeup duration value (1 LSB == 1 ODR).
+      Default is power-up configuration.
+
+      - 0x0 # IIS3DWB_DT_ODR_0
+      - 0x1 # IIS3DWB_DT_ODR_1
+      - 0x2 # IIS3DWB_DT_ODR_2
+      - 0x3 # IIS3DWB_DT_ODR_3
+
+    enum: [0x00, 0x01, 0x02, 0x03]
+
+  wakeup-ths-weight:
+    type: int
+    default: 0x0
+    description: |
+      Specify the wakeup threshold weight value.
+      Default is power-up configuration.
+
+      - 0 # IIS3DWB_DT_LSB_FS_DIV_64  (1 LSB = FS_XL/2^6)
+      - 1 # IIS3DWB_DT_LSB_FS_DIV_256 (1 LSB = FS_XL/2^8)
+
+    enum: [0, 1]
+
+  wakeup-threshold:
+    type: int
+    default: 0x0
+    description: |
+      Specify the wakeup threshold value (1 LSB value depends on the wakeup-ths-weight value).
+      Default is power-up configuration.
+      Valid range: 0 - 63

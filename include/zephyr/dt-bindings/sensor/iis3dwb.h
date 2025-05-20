@@ -52,4 +52,14 @@
 #define IIS3DWB_DT_DEC_TS_8       0x2
 #define IIS3DWB_DT_DEC_TS_32      0x3
 
+/* wakeup duration values */
+#define IIS3DWB_DT_ODR_0          0x0
+#define IIS3DWB_DT_ODR_1          0x1
+#define IIS3DWB_DT_ODR_2          0x2
+#define IIS3DWB_DT_ODR_3          0x3
+
+/* wakeup threshold weights */
+#define IIS3DWB_DT_LSB_FS_DIV_64  0 /* (1 LSB = FS_XL/2^6) */
+#define IIS3DWB_DT_LSB_FS_DIV_256 1 /* (1 LSB = FS_XL/2^8) */
+
 #endif /* ZEPHYR_INCLUDE_DT_BINDINGS_IIS3DWB_H_ */

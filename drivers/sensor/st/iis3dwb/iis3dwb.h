@@ -31,6 +31,7 @@ struct trigger_config {
 	uint8_t int_fifo_th : 1;
 	uint8_t int_fifo_full : 1;
 	uint8_t int_drdy : 1;
+	uint8_t int_motion : 1;
 };
 #endif
 
@@ -51,6 +52,10 @@ struct iis3dwb_config {
 	uint8_t accel_batch : 4;
 	uint8_t temp_batch : 2;
 	uint8_t ts_batch : 2;
+	uint16_t wakeup_ths_weight : 1;
+	uint16_t wakeup_threshold : 6;
+	uint16_t wakeup_duration : 2;
+	uint16_t reserved : 7;
 #endif
 #ifdef CONFIG_IIS3DWB_TRIGGER
 	const struct gpio_dt_spec int1_gpio;
@@ -78,6 +83,7 @@ struct iis3dwb_data {
 	uint64_t timestamp;
 	uint8_t status;
 	uint8_t fifo_status[2];
+	uint8_t wakeup_status;
 	uint16_t fifo_count;
 	struct trigger_config trig_cfg;
 	uint8_t accel_batch_odr : 4;

@@ -411,6 +411,8 @@ static bool iis3dwb_decoder_has_trigger(const uint8_t *buffer, enum sensor_trigg
 		return header->int_status & 0x80;
 	case SENSOR_TRIG_FIFO_FULL:
 		return header->int_status & 0x20;
+	case SENSOR_TRIG_MOTION:
+		return header->int_status & 0x08;
 	default:
 		return false;
 	}
