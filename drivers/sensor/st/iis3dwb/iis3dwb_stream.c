@@ -486,149 +486,6 @@ static void iis3dwb_read_status_cb(struct rtio *r, const struct rtio_sqe *sqe, v
 }
 
 /*
- * Called by bus driver to complete the IIS3DWB_WAKE_UP_SRC read op.
- */
-static void iis3dwb_read_wakeup_status_cb(struct rtio *r, const struct rtio_sqe *sqe, void *arg)
-{
-	const struct device *dev = arg;
-	struct iis3dwb_data *iis3dwb = dev->data;
-	struct rtio *rtio = iis3dwb->rtio_ctx;
-	struct gpio_dt_spec *irq_gpio = iis3dwb->drdy_gpio;
-	struct sensor_read_config *read_config;
-
-	/* At this point, no sqe request is queued should be considered as a bug */
-	__ASSERT_NO_MSG(iis3dwb->streaming_sqe != NULL);
-
-	read_config = (struct sensor_read_config *)iis3dwb->streaming_sqe->sqe.iodev->data;
-	__ASSERT_NO_MSG(read_config != NULL);
-	__ASSERT_NO_MSG(read_config->is_streaming == true);
-
-	/* parse the configuration in search for any configured trigger */
-	struct sensor_stream_trigger *data_ready = NULL;
-
-	for (int i = 0; i < read_config->count; ++i) {
-		if (read_config->triggers[i].trigger == SENSOR_TRIG_MOTION) {
-			data_ready = &read_config->triggers[i];
-			break;
-		}
-	}
-
-	/* flush completion */
-	struct rtio_cqe *cqe;
-	int res = 0;
-
-	do {
-		cqe = rtio_cqe_consume(rtio);
-		if (cqe != NULL) {
-			if ((cqe->result < 0) && (res == 0)) {
-				LOG_ERR("Bus error: %d", cqe->result);
-				res = cqe->result;
-			}
-			rtio_cqe_release(rtio, cqe);
-		}
-	} while (cqe != NULL);
-
-	/* Bail/cancel attempt to read sensor on any error */
-	if (res != 0) {
-		rtio_iodev_sqe_err(iis3dwb->streaming_sqe, res);
-		iis3dwb->streaming_sqe = NULL;
-		return;
-	}
-
-	#if 0
-	if (data_ready->opt == SENSOR_STREAM_DATA_NOP ||
-	    data_ready->opt == SENSOR_STREAM_DATA_DROP) {
-		uint8_t *buf;
-		uint32_t buf_len;
-
-		/* Clear streaming_sqe since we're done with the call */
-		if (rtio_sqe_rx_buf(iis3dwb->streaming_sqe, sizeof(struct iis3dwb_rtio_data),
-				    sizeof(struct iis3dwb_rtio_data), &buf, &buf_len) != 0) {
-			rtio_iodev_sqe_err(iis3dwb->streaming_sqe, -ENOMEM);
-			iis3dwb->streaming_sqe = NULL;
-			gpio_pin_interrupt_configure_dt(irq_gpio, GPIO_INT_EDGE_TO_ACTIVE);
-			return;
-		}
-
-		struct iis3dwb_rtio_data *rx_data = (struct iis3dwb_rtio_data *)buf;
-
-		memset(buf, 0, buf_len);
-		rx_data->header.is_fifo = 0;
-		rx_data->header.timestamp = iis3dwb->timestamp;
-		rx_data->has_accel = 0;
-		rx_data->has_temp = 0;
-
-		/* complete request with ok */
-		rtio_iodev_sqe_ok(iis3dwb->streaming_sqe, 0);
-		iis3dwb->streaming_sqe = NULL;
-		gpio_pin_interrupt_configure_dt(irq_gpio, GPIO_INT_EDGE_TO_ACTIVE);
-	}
-	#endif
-
-	/*
-	 * iis3dwb_all_sources_t val;
-	 *
-	 * if (val.wake_up_src & 0x8) {
-	 */
-	if (iis3dwb->wakeup_status & 0x8) {
-		uint8_t *buf, *read_buf;
-		uint32_t buf_len;
-		uint32_t req_len = 6 + sizeof(struct iis3dwb_rtio_data);
-
-		if (rtio_sqe_rx_buf(iis3dwb->streaming_sqe,
-				    req_len, req_len, &buf, &buf_len) != 0) {
-			LOG_ERR("Failed to get buffer");
-			rtio_iodev_sqe_err(iis3dwb->streaming_sqe, -ENOMEM);
-			iis3dwb->streaming_sqe = NULL;
-			gpio_pin_interrupt_configure_dt(irq_gpio, GPIO_INT_EDGE_TO_ACTIVE);
-			return;
-		}
-
-		/* clang-format off */
-		struct iis3dwb_rtio_data hdr = {
-			.header = {
-				.is_fifo = 0,
-				.range = iis3dwb->range,
-				.timestamp = iis3dwb->timestamp,
-				.int_status = iis3dwb->wakeup_status,
-			},
-			.has_accel = 0,
-			.has_temp = 0,
-		};
-		/* clang-format on */
-
-		memcpy(buf, &hdr, sizeof(hdr));
-
-		/* complete request with ok */
-		rtio_iodev_sqe_ok(iis3dwb->streaming_sqe, 0);
-		iis3dwb->streaming_sqe = NULL;
-		gpio_pin_interrupt_configure_dt(irq_gpio, GPIO_INT_EDGE_TO_ACTIVE);
-
-		#if 0
-		read_buf = (uint8_t *)&((struct iis3dwb_rtio_data *)buf)->accel[0];
-
-		/*
-		 * Prepare rtio enabled bus to read IIS3DWB_OUTX_L_A register
-		 * where accelerometer data is available.
-		 * Then iis3dwb_complete_op_cb callback will be invoked.
-		 *
-		 * STMEMSC API equivalent code:
-		 *
-		 *   uint8_t accel_raw[6];
-		 *
-		 *   iis3dwb_acceleration_raw_get(&dev_ctx, accel_raw);
-		 */
-		iis3dwb_rtio_rw_transaction(dev,
-					    IIS3DWB_OUTX_L_A,
-					    read_buf,
-					    6,
-					    iis3dwb->streaming_sqe,
-					    iis3dwb_complete_op_cb);
-		#endif
-	}
-}
-
-/*
  * Called when one of the following trigger is active:
  *
  *     - int_fifo_th (SENSOR_TRIG_FIFO_WATERMARK)
@@ -658,9 +515,16 @@ void iis3dwb_stream_irq_handler(const struct device *dev)
 	/* handle FIFO triggers */
 	if (iis3dwb->trig_cfg.int_fifo_th || iis3dwb->trig_cfg.int_fifo_full) {
 		iis3dwb->fifo_status[0] = iis3dwb->fifo_status[1] = 0;
+		iis3dwb->wakeup_status = 0;
 
-		uint8_t fifo_regs[]  = { IIS3DWB_FIFO_STATUS1, };
-		struct spi_buf buf[] = { {iis3dwb->fifo_status, 2}, };
+		uint8_t fifo_regs[]  = {
+			IIS3DWB_FIFO_STATUS1,
+			IIS3DWB_WAKE_UP_SRC,
+		};
+		struct spi_buf buf[] = {
+			{iis3dwb->fifo_status, 2},
+			{&iis3dwb->wakeup_status, 1},
+		};
 
 
 		/*
@@ -706,29 +570,5 @@ void iis3dwb_stream_irq_handler(const struct device *dev)
 					    drdy_buf,
 					    iis3dwb->streaming_sqe,
 					    iis3dwb_read_status_cb);
-	}
-
-	/* handle wakeup trigger */
-	if (iis3dwb->trig_cfg.int_motion) {
-		iis3dwb->status = 0;
-
-		/*
-		 * Prepare rtio enabled bus to read IIS3DWB_WAKE_UP_SRC register
-		 * where wakeup event status is available.
-		 * Then iis3dwb_read_wakeup_status_cb callback will be invoked.
-		 *
-		 * STMEMSC API similar code:
-		 *
-		 *   iis3dwb_all_sources_t val;
-		 *
-		 *   iis3dwb_all_sources_get(&dev_ctx, &val);
-		 *   (then use val.wake_up_src)
-		 */
-		iis3dwb_rtio_rw_transaction(dev,
-					    IIS3DWB_WAKE_UP_SRC,
-					    &iis3dwb->wakeup_status,
-					    1,
-					    iis3dwb->streaming_sqe,
-					    iis3dwb_read_wakeup_status_cb);
 	}
 }
