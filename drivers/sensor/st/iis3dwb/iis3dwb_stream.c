@@ -23,7 +23,7 @@ static void iis3dwb_config_wakeup(const struct device *dev, struct trigger_confi
 	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&config->ctx;
 
 	iis3dwb_xl_hp_path_internal_set(ctx, IIS3DWB_USE_HPF);
-	iis3dwb_int_notification_set(ctx, IIS3DWB_INT_LATCHED);
+	iis3dwb_int_notification_set(ctx, IIS3DWB_INT_PULSED);
 	iis3dwb_wkup_ths_weight_set(ctx, config->wakeup_ths_weight);
 	iis3dwb_wkup_threshold_set(ctx, config->wakeup_threshold);
 	iis3dwb_wkup_dur_set(ctx, config->wakeup_duration);
@@ -111,7 +111,7 @@ void iis3dwb_submit_stream(const struct device *dev, struct rtio_iodev_sqe *iode
 			pin_int.fifo_th = (trig_cfg.int_fifo_th) ? 1 : 0;
 			pin_int.fifo_full = (trig_cfg.int_fifo_full) ? 1 : 0;
 			pin_int.drdy_xl = (trig_cfg.int_drdy) ? 1 : 0;
-			pin_int.wake_up = (trig_cfg.int_motion) ? 1 : 0;
+			//pin_int.wake_up = (trig_cfg.int_motion) ? 1 : 0;
 			iis3dwb_route_int1(dev, pin_int);
 		} else if (config->drdy_pin == 2) {
 			iis3dwb_pin_int2_route_t pin_int = { 0 };
@@ -119,7 +119,7 @@ void iis3dwb_submit_stream(const struct device *dev, struct rtio_iodev_sqe *iode
 			pin_int.fifo_th = (trig_cfg.int_fifo_th) ? 1 : 0;
 			pin_int.fifo_full = (trig_cfg.int_fifo_full) ? 1 : 0;
 			pin_int.drdy_xl = (trig_cfg.int_drdy) ? 1 : 0;
-			pin_int.wake_up = (trig_cfg.int_motion) ? 1 : 0;
+			//pin_int.wake_up = (trig_cfg.int_motion) ? 1 : 0;
 			iis3dwb_route_int2(dev, pin_int);
 		}
 	}
@@ -170,6 +170,7 @@ static void iis3dwb_read_fifo_cb(struct rtio *r, const struct rtio_sqe *sqe, voi
 	/* parse the configuration in search for any configured trigger */
 	struct sensor_stream_trigger *fifo_ths_cfg = NULL;
 	struct sensor_stream_trigger *fifo_full_cfg = NULL;
+	struct sensor_stream_trigger *motion_cfg = NULL;
 
 	for (int i = 0; i < read_config->count; ++i) {
 		if (read_config->triggers[i].trigger == SENSOR_TRIG_FIFO_WATERMARK) {
@@ -179,6 +180,11 @@ static void iis3dwb_read_fifo_cb(struct rtio *r, const struct rtio_sqe *sqe, voi
 
 		if (read_config->triggers[i].trigger == SENSOR_TRIG_FIFO_FULL) {
 			fifo_full_cfg = &read_config->triggers[i];
+			continue;
+		}
+
+		if (read_config->triggers[i].trigger == SENSOR_TRIG_MOTION) {
+			motion_cfg = &read_config->triggers[i];
 			continue;
 		}
 	}
@@ -192,6 +198,7 @@ static void iis3dwb_read_fifo_cb(struct rtio *r, const struct rtio_sqe *sqe, voi
 
 	bool has_fifo_ths_trig = fifo_ths_cfg != NULL && fifo_th == 1;
 	bool has_fifo_full_trig = fifo_full_cfg != NULL && fifo_full == 1;
+	bool has_motion_trig = motion_cfg != NULL && iis3dwb->wakeup_status & 0x8;
 
 	/* check if no theshold/full fifo interrupt or spurious interrupts */
 	if (!has_fifo_ths_trig && !has_fifo_full_trig) {
@@ -310,7 +317,8 @@ static void iis3dwb_read_fifo_cb(struct rtio *r, const struct rtio_sqe *sqe, voi
 			.is_fifo = 1,
 			.range = iis3dwb->range,
 			.timestamp = iis3dwb->timestamp,
-			.int_status = iis3dwb->fifo_status[1],
+			.int_status = iis3dwb->fifo_status[1] |
+				      (iis3dwb->wakeup_status & 0x8),
 		},
 		.fifo_count = fifo_count,
 		.accel_batch_odr = iis3dwb->accel_batch_odr,
@@ -514,8 +522,8 @@ void iis3dwb_stream_irq_handler(const struct device *dev)
 
 	/* handle FIFO triggers */
 	if (iis3dwb->trig_cfg.int_fifo_th || iis3dwb->trig_cfg.int_fifo_full) {
+		uint8_t reg_len;
 		iis3dwb->fifo_status[0] = iis3dwb->fifo_status[1] = 0;
-		iis3dwb->wakeup_status = 0;
 
 		uint8_t fifo_regs[]  = {
 			IIS3DWB_FIFO_STATUS1,
@@ -526,6 +534,11 @@ void iis3dwb_stream_irq_handler(const struct device *dev)
 			{&iis3dwb->wakeup_status, 1},
 		};
 
+		reg_len = 1;
+		if (iis3dwb->trig_cfg.int_motion) {
+			iis3dwb->wakeup_status = 0;
+			reg_len = ARRAY_SIZE(fifo_regs);
+		}
 
 		/*
 		 * Prepare rtio enabled bus to read IIS3DWB_FIFO_STATUS1 and
@@ -540,7 +553,7 @@ void iis3dwb_stream_irq_handler(const struct device *dev)
 		 */
 		iis3dwb_rtio_rd_transaction(dev,
 					    fifo_regs,
-					    ARRAY_SIZE(fifo_regs),
+					    reg_len,
 					    buf,
 					    iis3dwb->streaming_sqe,
 					    iis3dwb_read_fifo_cb);
