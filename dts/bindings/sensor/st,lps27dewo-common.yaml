@@ -1,0 +1,29 @@
+# Copyright (c) 2025 STMicroelectronics
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+    When setting the odr, lpf, avg properties in a .dts or .dtsi file
+    you may include lps2xdf.h and use the macros defined there.
+
+    Example:
+    #include <zephyr/dt-bindings/sensor/lps2xdf.h>
+
+    lps22df@5d {
+      ...
+
+      fs = <LPS27DEWO_DT_FS_MODE_2_6060>;
+    };
+
+include: st,lps22df-common.yaml
+
+properties:
+  fs:
+    type: int
+    default: 0
+    description: |
+        Specify the full-scale mode.
+        The default is the power-on reset value.
+
+        - 0 # LPS27DEWO_DT_FS_MODE_1_1260
+        - 1 # LPS27DEWO_DT_FS_MODE_2_6060
+    enum: [0, 1]

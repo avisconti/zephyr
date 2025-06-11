@@ -41,4 +41,8 @@
 #define ILPS22QS_DT_FS_MODE_1_1260		0
 #define ILPS22QS_DT_FS_MODE_2_4060		1
 
+/* Full Scale Pressure Mode */
+#define LPS27DEWO_DT_FS_MODE_1_1260		0
+#define LPS27DEWO_DT_FS_MODE_2_6060		1
+
 #endif /* ZEPHYR_INCLUDE_DT_BINDINGS_ST_LPS22DF_H_ */

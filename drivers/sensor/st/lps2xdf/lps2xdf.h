@@ -24,6 +24,10 @@
 #include "lps22df_reg.h"
 #endif
 
+#if DT_HAS_COMPAT_STATUS_OKAY(st_lps27dewo)
+#include "lps27dewo_reg.h"
+#endif
+
 #include <zephyr/drivers/spi.h>
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/drivers/i3c.h>
@@ -33,6 +37,7 @@
 
 #if (DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps22df, i3c) || \
 	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_ilps22qs, i3c) || \
+	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps27dewo, i3c) || \
 	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps28dfw, i3c))
 	#define ON_I3C_BUS(cfg) (cfg->i3c.bus != NULL)
 #else
@@ -78,15 +83,18 @@ struct lps2xdf_config {
 	union {
 #if (DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps22df, i2c) || \
 	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_ilps22qs, i2c) || \
+	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps27dewo, i2c) || \
 	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps28dfw, i2c))
 		const struct i2c_dt_spec i2c;
 #endif
 #if (DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps22df, spi) ||\
+	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps27dewo, spi) || \
 	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_ilps22qs, spi))
 		const struct spi_dt_spec spi;
 #endif
 #if (DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps22df, i3c) || \
 	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_ilps22qs, i3c) || \
+	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps27dewo, i3c) || \
 	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps28dfw, i3c))
 		struct i3c_device_desc **i3c;
 #endif
@@ -103,6 +111,7 @@ struct lps2xdf_config {
 
 #if (DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps22df, i3c) || \
 	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_ilps22qs, i3c) || \
+	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps27dewo, i3c) || \
 	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps28dfw, i3c))
 	struct {
 		const struct device *bus;
@@ -135,8 +144,18 @@ struct lps2xdf_data {
 
 #if (DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps22df, i3c) || \
 	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_ilps22qs, i3c) || \
+	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps27dewo, i3c) || \
 	DT_HAS_COMPAT_ON_BUS_STATUS_OKAY(st_lps28dfw, i3c))
 	struct i3c_device_desc *i3c_dev;
+#endif
+
+#ifdef CONFIG_DT_HAS_ST_LPS27DEWO_ENABLED
+	/* compensation values */
+	uint8_t pag;
+	uint8_t Delta_P0;
+	int32_t dgain;
+	float knl2;
+	float knl3;
 #endif
 };
 

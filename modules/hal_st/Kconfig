@@ -138,6 +138,9 @@ config USE_STDC_LPS22HH
 config USE_STDC_LPS25HB
 	bool
 
+config USE_STDC_LPS27DEWO
+	bool
+
 config USE_STDC_LPS27HHW
 	bool
 
