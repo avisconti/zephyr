@@ -12,6 +12,41 @@
 
 LOG_MODULE_DECLARE(LPS2XDF, CONFIG_SENSOR_LOG_LEVEL);
 
+static inline void ilps22qs_press_convert(const struct device *dev,
+					  struct sensor_value *val,
+					  int32_t raw_val)
+{
+	const struct lps2xdf_config *const cfg = dev->config;
+	int32_t press_tmp = raw_val >> 8; /* raw value is left aligned (24 msb) */
+	int divider;
+
+	/* Pressure sensitivity is:
+	 * - 4096 LSB/hPa for Full-Scale of 260 - 1260 hPa:
+	 * - 2048 LSB/hPa for Full-Scale of 260 - 4060 hPa:
+	 * Also convert hPa into kPa
+	 */
+	if (cfg->fs == 0) {
+		divider = 40960;
+	} else {
+		divider = 20480;
+	}
+	val->val1 = press_tmp / divider;
+
+	/* For the decimal part use (3125 / 128) as a factor instead of
+	 * (1000000 / 40960) to avoid int32 overflow
+	 */
+	val->val2 = (press_tmp % divider) * 3125 / 128;
+}
+
+static inline void ilps22qs_temp_convert(const struct device *dev,
+					 struct sensor_value *val,
+					 int16_t raw_val)
+{
+	/* Temperature sensitivity is 100 LSB/deg C */
+	val->val1 = raw_val / 100;
+	val->val2 = ((int32_t)raw_val % 100) * 10000;
+}
+
 static inline int ilps22qs_mode_set_odr_raw(const struct device *dev, uint8_t odr)
 {
 	const struct lps2xdf_config *const cfg = dev->config;
@@ -77,6 +112,8 @@ static int ilps22qs_trigger_set(const struct device *dev,
 const struct lps2xdf_chip_api st_ilps22qs_chip_api = {
 	.mode_set_odr_raw = ilps22qs_mode_set_odr_raw,
 	.sample_fetch = ilps22qs_sample_fetch,
+	.press_convert = ilps22qs_press_convert,
+	.temp_convert = ilps22qs_temp_convert,
 #if CONFIG_LPS2XDF_TRIGGER
 	.config_interrupt = ilps22qs_config_interrupt,
 	.handle_interrupt = ilps22qs_handle_interrupt,

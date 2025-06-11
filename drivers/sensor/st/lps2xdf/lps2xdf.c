@@ -81,49 +81,17 @@ static int lps2xdf_attr_set(const struct device *dev, enum sensor_channel chan,
 	return 0;
 }
 
-static inline void lps2xdf_press_convert(const struct device *dev,
-					 struct sensor_value *val,
-					 int32_t raw_val)
-{
-	const struct lps2xdf_config *const cfg = dev->config;
-	int32_t press_tmp = raw_val >> 8; /* raw value is left aligned (24 msb) */
-	int divider;
-
-	/* Pressure sensitivity is:
-	 * - 4096 LSB/hPa for Full-Scale of 260 - 1260 hPa:
-	 * - 2048 LSB/hPa for Full-Scale of 260 - 4060 hPa:
-	 * Also convert hPa into kPa
-	 */
-	if (cfg->fs == 0) {
-		divider = 40960;
-	} else {
-		divider = 20480;
-	}
-	val->val1 = press_tmp / divider;
-
-	/* For the decimal part use (3125 / 128) as a factor instead of
-	 * (1000000 / 40960) to avoid int32 overflow
-	 */
-	val->val2 = (press_tmp % divider) * 3125 / 128;
-}
-
-
-static inline void lps2xdf_temp_convert(struct sensor_value *val, int16_t raw_val)
-{
-	/* Temperature sensitivity is 100 LSB/deg C */
-	val->val1 = raw_val / 100;
-	val->val2 = ((int32_t)raw_val % 100) * 10000;
-}
-
 static int lps2xdf_channel_get(const struct device *dev, enum sensor_channel chan,
 			       struct sensor_value *val)
 {
 	struct lps2xdf_data *data = dev->data;
+	const struct lps2xdf_config *const cfg = dev->config;
+	const struct lps2xdf_chip_api *chip_api = cfg->chip_api;
 
 	if (chan == SENSOR_CHAN_PRESS) {
-		lps2xdf_press_convert(dev, val, data->sample_press);
+		chip_api->press_convert(dev, val, data->sample_press);
 	} else if (chan == SENSOR_CHAN_AMBIENT_TEMP) {
-		lps2xdf_temp_convert(val, data->sample_temp);
+		chip_api->temp_convert(dev, val, data->sample_temp);
 	} else {
 		return -ENOTSUP;
 	}
