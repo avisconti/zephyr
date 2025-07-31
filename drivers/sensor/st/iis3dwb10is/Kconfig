@@ -1,0 +1,36 @@
+# ST Microelectronics IIS3DWB10IS accelerometer sensor
+
+# Copyright (c) 2025 STMicroelectronics
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig IIS3DWB10IS
+	bool "IIS3DWB10IS accelerometer sensor"
+	default y
+	depends on DT_HAS_ST_IIS3DWB10IS_ENABLED
+	depends on ZEPHYR_HAL_ST_MODULE
+	select SPI
+	select HAS_STMEMSC
+	select USE_STDC_IIS3DWB10IS
+	help
+	  Enable driver for IIS3DWB10IS SPI-based accelerometer sensor.
+
+if IIS3DWB10IS
+
+config IIS3DWB10IS_STREAM
+	bool "IIS3DWB10IS data streaming"
+	select IIS3DWB10IS_TRIGGER
+	default y
+	depends on SPI_RTIO
+	depends on SENSOR_ASYNC_API
+	help
+	  Use this config option to enable streaming sensor data via RTIO subsystem.
+
+config IIS3DWB10IS_TRIGGER
+	bool
+
+config IIS3DWB10IS_ENABLE_TEMP
+	bool "Temperature"
+	help
+	  Enable/disable temperature sensor
+
+endif # IIS3DWB10IS
