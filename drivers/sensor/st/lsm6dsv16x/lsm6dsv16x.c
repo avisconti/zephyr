@@ -1551,10 +1551,20 @@ static int lsm6dsv16x_pm_action(const struct device *dev, enum pm_device_action 
 		    .gyro_batch  = DT_INST_PROP(inst, gyro_fifo_batch_rate),	\
 		    .sflp_odr  = DT_INST_PROP(inst, sflp_odr),			\
 		    .sflp_fifo_en  = DT_INST_PROP(inst, sflp_fifo_enable),	\
-		    .temp_batch  = DT_INST_PROP(inst, temp_fifo_batch_rate),))	\
+		    .temp_batch  = DT_INST_PROP(inst, temp_fifo_batch_rate),	\
+		    .stepcnt_enable = DT_INST_PROP(inst, stepcnt_enable),	\
+		    .stepcnt_fifo_en = DT_INST_PROP(inst, stepcnt_fifo_enable),	\
+		    .stepcnt_false_rej = DT_INST_PROP(inst, stepcnt_false_rej),	\
+		    .stepcnt_debounce = DT_INST_PROP(inst, stepcnt_debounce),	\
+		    .stepcnt_dtime = DT_INST_PROP(inst, stepcnt_delta_time),	\
+		))								\
 	IF_ENABLED(UTIL_OR(DT_INST_NODE_HAS_PROP(inst, int1_gpios),		\
 			   DT_INST_NODE_HAS_PROP(inst, int2_gpios)),		\
 		   (LSM6DSV16X_CFG_IRQ(inst)))
+
+/* RTIO PULL SIZE */
+#define LSM6DSV16X_RTIO_SQE_POLL_SIZE 	6
+#define LSM6DSV16X_RTIO_CQE_POLL_SIZE 	6
 
 /*
  * Instantiation macros used when a device is on a SPI bus.
@@ -1568,7 +1578,9 @@ static int lsm6dsv16x_pm_action(const struct device *dev, enum pm_device_action 
 #define LSM6DSV16X_SPI_RTIO_DEFINE(inst, prefix)			\
 	SPI_DT_IODEV_DEFINE(prefix##_iodev_##inst,			\
 		DT_DRV_INST(inst), LSM6DSV16X_SPI_OP);			\
-	RTIO_DEFINE(prefix##_rtio_ctx_##inst, 4, 4);
+	RTIO_DEFINE(prefix##_rtio_ctx_##inst,				\
+			LSM6DSV16X_RTIO_SQE_POLL_SIZE, 			\
+			LSM6DSV16X_RTIO_CQE_POLL_SIZE);
 
 #define LSM6DSV16X_CONFIG_SPI(inst, prefix)				\
 	{								\
@@ -1600,7 +1612,9 @@ static int lsm6dsv16x_pm_action(const struct device *dev, enum pm_device_action 
 
 #define LSM6DSV16X_I2C_RTIO_DEFINE(inst, prefix)			\
 	I2C_DT_IODEV_DEFINE(prefix##_iodev_##inst, DT_DRV_INST(inst));	\
-	RTIO_DEFINE(prefix##_rtio_ctx_##inst, 4, 4);
+	RTIO_DEFINE(prefix##_rtio_ctx_##inst,				\
+			LSM6DSV16X_RTIO_SQE_POLL_SIZE, 			\
+			LSM6DSV16X_RTIO_CQE_POLL_SIZE);
 
 #define LSM6DSV16X_CONFIG_I2C(inst, prefix)				\
 	{								\
@@ -1631,7 +1645,9 @@ static int lsm6dsv16x_pm_action(const struct device *dev, enum pm_device_action 
 
 #define LSM6DSV16X_I3C_RTIO_DEFINE(inst, prefix)				\
 	I3C_DT_IODEV_DEFINE(prefix##_i3c_iodev_##inst, DT_DRV_INST(inst));	\
-	RTIO_DEFINE(prefix##_rtio_ctx_##inst, 4, 4);
+	RTIO_DEFINE(prefix##_rtio_ctx_##inst,					\
+			LSM6DSV16X_RTIO_SQE_POLL_SIZE, 				\
+			LSM6DSV16X_RTIO_CQE_POLL_SIZE);
 
 #define LSM6DSV16X_CONFIG_I3C(inst, prefix)						\
 	{										\

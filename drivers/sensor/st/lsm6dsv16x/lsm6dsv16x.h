@@ -86,6 +86,11 @@ struct lsm6dsv16x_config {
 	uint8_t temp_batch : 2;
 	uint8_t sflp_odr : 3;
 	uint8_t sflp_fifo_en : 3;
+	uint8_t stepcnt_enable : 1;
+	uint8_t stepcnt_fifo_en : 1;
+	uint8_t stepcnt_false_rej : 1;
+	uint8_t stepcnt_debounce;
+	uint16_t stepcnt_dtime;
 #endif
 #ifdef CONFIG_LSM6DSV16X_TRIGGER
 	const struct gpio_dt_spec int1_gpio;
@@ -132,6 +137,7 @@ struct trigger_config {
 	uint8_t int_fifo_th : 1;
 	uint8_t int_fifo_full : 1;
 	uint8_t int_drdy : 1;
+	uint8_t int_step : 1;
 };
 
 struct lsm6dsv16x_data {
@@ -183,6 +189,7 @@ struct lsm6dsv16x_data {
 	int32_t gbias_x_udps;
 	int32_t gbias_y_udps;
 	int32_t gbias_z_udps;
+	uint8_t steps_detected;
 #endif
 
 #ifdef CONFIG_LSM6DSV16X_TRIGGER

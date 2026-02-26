@@ -7,6 +7,7 @@
  */
 
 #include <zephyr/dt-bindings/sensor/lsm6dsv16x.h>
+#include <zephyr/drivers/sensor/lsm6dsv16x.h>
 #include <zephyr/drivers/sensor.h>
 #include "lsm6dsv16x.h"
 #include "lsm6dsv16x_decoder.h"
@@ -88,6 +89,8 @@ static void lsm6dsv16x_config_fifo(const struct device *dev, struct trigger_conf
 	lsm6dsv16x_fifo_mode_t fifo_mode = LSM6DSV16X_BYPASS_MODE;
 	lsm6dsv16x_sflp_data_rate_t sflp_odr = LSM6DSV16X_SFLP_120Hz;
 	lsm6dsv16x_fifo_sflp_raw_t sflp_fifo = { 0 };
+	lsm6dsv16x_stpcnt_mode_t stpcnt_mode = { 0 };
+	uint8_t stp_cnt_fifo_en = 0;
 	lsm6dsv16x_sflp_gbias_t gbias;
 
 	/* disable FIFO as first thing */
@@ -119,8 +122,12 @@ static void lsm6dsv16x_config_fifo(const struct device *dev, struct trigger_conf
 			sflp_fifo.gbias = 1;
 		}
 
+		stp_cnt_fifo_en = config->stepcnt_fifo_en;
 		sflp_odr = config->sflp_odr;
 	}
+
+	stpcnt_mode.step_counter_enable = config->stepcnt_enable;
+	stpcnt_mode.false_step_rej = config->stepcnt_false_rej;
 
 	/*
 	 * Set FIFO watermark (number of unread sensor data TAG + 6 bytes
@@ -145,6 +152,12 @@ static void lsm6dsv16x_config_fifo(const struct device *dev, struct trigger_conf
 	lsm6dsv16x->sflp_batch_odr = sflp_odr;
 	lsm6dsv16x_fifo_sflp_batch_set(ctx, sflp_fifo);
 	lsm6dsv16x_sflp_game_rotation_set(ctx, PROPERTY_ENABLE);
+
+	/* Enable step counter */
+	lsm6dsv16x_stpcnt_mode_set(ctx, stpcnt_mode);
+	lsm6dsv16x_stpcnt_debounce_set(ctx, config->stepcnt_debounce);
+	lsm6dsv16x_stpcnt_period_set(ctx, config->stepcnt_dtime);
+	lsm6dsv16x_fifo_stpcnt_batch_set(ctx, stp_cnt_fifo_en);
 
 	/*
 	 * Temporarily set Accel and gyro odr same as sensor fusion LP in order to
@@ -197,6 +210,12 @@ static void lsm6dsv16x_config_fifo(const struct device *dev, struct trigger_conf
 		lsm6dsv16x_pin_int1_route_set(ctx, &pin_int);
 	} else {
 		lsm6dsv16x_pin_int2_route_set(ctx, &pin_int);
+		if (trig_cfg.int_step == 1) {
+			lsm6dsv16x_emb_pin_int_route_t emb_pin_int = { 0 };
+
+			emb_pin_int.step_det = 1;
+			lsm6dsv16x_emb_pin_int2_route_set(ctx, &emb_pin_int);
+		}
 	}
 }
 
@@ -220,6 +239,9 @@ void lsm6dsv16x_submit_stream(const struct device *dev, struct rtio_iodev_sqe *i
 			trig_cfg.int_fifo_full = 1;
 		} else if (cfg->triggers[i].trigger == SENSOR_TRIG_DATA_READY) {
 			trig_cfg.int_drdy = 1;
+		} else if (cfg->triggers[i].trigger == SENSOR_TRIG_LSM6DSV16X_STEP_DETECTION) {
+			trig_cfg.int_step = 1;
+			lsm6dsv16x->trig_cfg.int_step = 1;
 		}
 	}
 
@@ -312,6 +334,10 @@ static void lsm6dsv16x_read_fifo_cb(struct rtio *r, const struct rtio_sqe *sqe,
 			fifo_full_cfg = &read_config->triggers[i];
 			continue;
 		}
+
+		if (read_config->triggers[i].trigger == SENSOR_TRIG_LSM6DSV16X_STEP_DETECTION) {
+			continue;
+		}
 	}
 
 	/* fill fifo h/w status */
@@ -320,6 +346,12 @@ static void lsm6dsv16x_read_fifo_cb(struct rtio *r, const struct rtio_sqe *sqe,
 	fifo_count = (uint16_t)lsm6dsv16x->fifo_status[1] & 0x1U;
 	fifo_count = (fifo_count << 8) | lsm6dsv16x->fifo_status[0];
 	lsm6dsv16x->fifo_count = fifo_count;
+
+	if (lsm6dsv16x->steps_detected == 1) {
+		/* force a FIFO read */
+		lsm6dsv16x->steps_detected = 0;
+		fifo_th = 1;
+	}
 
 	bool has_fifo_ths_trig = fifo_ths_cfg != NULL && fifo_th == 1;
 	bool has_fifo_full_trig = fifo_full_cfg != NULL && fifo_full == 1;
@@ -637,11 +669,59 @@ static void lsm6dsv16x_read_status_cb(struct rtio *r, const struct rtio_sqe *sqe
 }
 
 /*
+ * Called by bus driver to complete the LSM6DSV16X_EMB_FUNC_STATUS_MAINPAGE read op.
+ * If step is detected, then mark it to later force a FIFO reading.
+ */
+static void lsm6dsv16x_read_emb_func_status_cb(struct rtio *r, const struct rtio_sqe *sqe,
+				      int result, void *arg)
+{
+	ARG_UNUSED(result);
+
+	const struct device *dev = arg;
+	struct lsm6dsv16x_data *lsm6dsv16x = dev->data;
+	struct rtio *rtio = lsm6dsv16x->rtio_ctx;
+	struct sensor_read_config *read_config;
+
+	/* At this point, no sqe request is queued should be considered as a bug */
+	__ASSERT_NO_MSG(lsm6dsv16x->streaming_sqe != NULL);
+
+	read_config = (struct sensor_read_config *)lsm6dsv16x->streaming_sqe->sqe.iodev->data;
+	__ASSERT_NO_MSG(read_config != NULL);
+	__ASSERT_NO_MSG(read_config->is_streaming == true);
+
+	/* flush completion */
+	int res = 0;
+
+	res = rtio_flush_completion_queue(rtio);
+
+	/* Bail/cancel attempt to read sensor on any error */
+	if (res != 0) {
+		rtio_iodev_sqe_err(lsm6dsv16x->streaming_sqe, res);
+		lsm6dsv16x->streaming_sqe = NULL;
+		return;
+	}
+
+	lsm6dsv16x->steps_detected = 0;
+
+	/*
+	 * if step was detected then mark it
+	 *
+	 * lsm6dsv16x_embedded_status_t status;
+	 *
+	 * if (status.step_detector) {
+	 */
+	if (lsm6dsv16x->status & 0x08) {
+		lsm6dsv16x->steps_detected = 1;
+	}
+}
+
+/*
  * Called when one of the following trigger is active:
  *
  *     - int_fifo_th (SENSOR_TRIG_FIFO_WATERMARK)
  *     - int_fifo_full (SENSOR_TRIG_FIFO_FULL)
  *     - int_drdy (SENSOR_TRIG_DATA_READY)
+ *     - int_step (SENSOR_TRIG_LSM6DSV16X_STEP_DETECTION)
  */
 void lsm6dsv16x_stream_irq_handler(const struct device *dev)
 {
@@ -666,6 +746,40 @@ void lsm6dsv16x_stream_irq_handler(const struct device *dev)
 
 	/* get timestamp as soon as the irq is served */
 	lsm6dsv16x->timestamp = sensor_clock_cycles_to_ns(cycles);
+
+	/* read embedded function status */
+	if (lsm6dsv16x->trig_cfg.int_step == 1) {
+		lsm6dsv16x->status = 0;
+
+		uint8_t reg_addr = lsm6dsv16x_bus_reg(lsm6dsv16x->bus_type,
+						      LSM6DSV16X_EMB_FUNC_STATUS_MAINPAGE);
+		struct rtio_regs fifo_regs;
+		struct rtio_regs_list regs_list[] = {
+			{
+				reg_addr,
+				&lsm6dsv16x->status,
+				1,
+			},
+		};
+
+		fifo_regs.rtio_regs_list = regs_list;
+		fifo_regs.rtio_regs_num = ARRAY_SIZE(regs_list);
+
+		/*
+		 * Prepare rtio enabled bus to read LSM6DSV16X_EMB_FUNC_STATUS_MAINPAGE register
+		 * where accelerometer and gyroscope data ready status is available.
+		 * Then lsm6dsv16x_read_emb_func_status_cb callback will be invoked.
+		 *
+		 * STMEMSC API equivalent code:
+		 *
+		 *   lsm6dsv16x_embedded_status_t status;
+		 *
+		 *   lsm6dsv16x_embedded_status_get(&dev_ctx, &status);
+		 */
+		rtio_read_regs_async(lsm6dsv16x->rtio_ctx, lsm6dsv16x->iodev, lsm6dsv16x->bus_type,
+				     &fifo_regs, lsm6dsv16x->streaming_sqe, dev,
+				     lsm6dsv16x_read_emb_func_status_cb);
+	}
 
 	/* handle FIFO triggers */
 	if (lsm6dsv16x->trig_cfg.int_fifo_th || lsm6dsv16x->trig_cfg.int_fifo_full) {

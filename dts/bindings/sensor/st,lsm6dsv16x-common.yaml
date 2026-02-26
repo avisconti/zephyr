@@ -37,6 +37,39 @@ properties:
 
     enum: [0x0, 0x1, 0x2, 0x3, 0x4, 0xc]
 
+  stepcnt-enable:
+    type: boolean
+    description: |
+      Enable step counter.
+
+  stepcnt-fifo-enable:
+    type: boolean
+    description: |
+      Enable step counter in FIFO mode.
+
+  stepcnt-false-rej:
+    type: boolean
+    description: |
+      Enable false step rejection feature for step counter in FIFO mode.
+
+  stepcnt-debounce:
+    type: int
+    default: 0xa
+    description: |
+      Configure the pedometer debounce, i.e. the minimum number of steps to
+      increment the step counter. Default is power-up configuration.
+      Valid range: 0 - 255
+
+  stepcnt-delta-time:
+    type: int
+    default: 0
+    description: |
+      Configure the delta time (with 6.4 ms resolution) for step detection, i.e. the
+      time period to generate interrupt if at least one step is detected. A value of 0,
+      which is the default as per power-up configuration, means to generate interrupt
+      as a step is detected.
+      Valid range: 0 - 65535
+
 examples:
   - |
     #include <zephyr/dt-bindings/sensor/lsm6dsv16x.h>

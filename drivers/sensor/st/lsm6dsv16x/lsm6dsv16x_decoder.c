@@ -9,6 +9,7 @@
 #include "lsm6dsv16x.h"
 #include "lsm6dsv16x_decoder.h"
 #include <zephyr/dt-bindings/sensor/lsm6dsv16x.h>
+#include <zephyr/drivers/sensor/lsm6dsv16x.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(LSM6DSV16X_DECODER, CONFIG_SENSOR_LOG_LEVEL);
@@ -193,6 +194,7 @@ static int lsm6dsv16x_decoder_get_frame_count(const uint8_t *buffer,
 	uint8_t fifo_tag;
 	uint8_t tot_accel_fifo_words = 0, tot_gyro_fifo_words = 0;
 	uint8_t tot_sflp_gbias = 0, tot_sflp_gravity = 0, tot_sflp_game_rotation = 0;
+	uint8_t tot_step_counter = 0;
 
 #if defined(CONFIG_LSM6DSV16X_ENABLE_TEMP)
 	uint8_t tot_temp_fifo_words = 0;
@@ -225,6 +227,9 @@ static int lsm6dsv16x_decoder_get_frame_count(const uint8_t *buffer,
 			break;
 		case LSM6DSV16X_SFLP_GAME_ROTATION_VECTOR_TAG:
 			tot_sflp_game_rotation++;
+			break;
+		case LSM6DSV16X_STEP_COUNTER_TAG:
+			tot_step_counter++;
 			break;
 		default:
 			break;
@@ -262,6 +267,9 @@ static int lsm6dsv16x_decoder_get_frame_count(const uint8_t *buffer,
 	case SENSOR_CHAN_GBIAS_XYZ:
 		*frame_count = tot_sflp_gbias;
 		break;
+	case SENSOR_CHAN_LSM6DSV16X_STEP_COUNTER:
+		*frame_count = tot_step_counter;
+		break;
 	default:
 		*frame_count = 0;
 		break;
@@ -287,6 +295,7 @@ static int lsm6dsv16x_decode_fifo(const uint8_t *buffer, struct sensor_chan_spec
 	uint16_t temp_count = 0;
 #endif
 	uint16_t game_rot_count = 0, gravity_count = 0, gbias_count = 0;
+	uint16_t step_count = 0;
 	int ret;
 
 	/* count total FIFO word for each tag */
@@ -323,6 +332,10 @@ static int lsm6dsv16x_decode_fifo(const uint8_t *buffer, struct sensor_chan_spec
 		((struct sensor_data_header *)data_out)->base_timestamp_ns =
 			edata->header.timestamp -
 			(tot_chan_fifo_words - 1) * sflp_period_ns[edata->sflp_batch_odr];
+	} else if (chan_spec.chan_type == SENSOR_CHAN_LSM6DSV16X_STEP_COUNTER) {
+		((struct sensor_data_header *)data_out)->base_timestamp_ns =
+			edata->header.timestamp -
+			(tot_chan_fifo_words - 1) * accel_period_ns[edata->accel_batch_odr];
 	}
 
 	while (count < max_count && buffer < buffer_end) {
@@ -546,6 +559,29 @@ static int lsm6dsv16x_decode_fifo(const uint8_t *buffer, struct sensor_chan_spec
 			out->readings[count].z = Q31_SHIFT_VAL(z, out->shift);
 			break;
 		}
+		case LSM6DSV16X_STEP_COUNTER_TAG:
+			struct sensor_q31_data *out = data_out;
+			uint32_t steps;
+
+			step_count++;
+			if ((uintptr_t)buffer < *fit) {
+				/* This frame was already decoded, move on to the next frame */
+				buffer = frame_end;
+				continue;
+			}
+
+			if (chan_spec.chan_type != SENSOR_CHAN_LSM6DSV16X_STEP_COUNTER) {
+				buffer = frame_end;
+				continue;
+			}
+
+			out->readings[count].timestamp_delta =
+				(step_count - 1) * sflp_period_ns[edata->sflp_batch_odr];
+
+			out->shift = 11;
+			steps = (buffer[1] | (buffer[2] << 8));
+			out->readings[count].value = Q31_SHIFT_VAL(steps, out->shift);
+			break;
 
 		default:
 			/* skip unhandled FIFO tag */
@@ -684,6 +720,10 @@ static int lsm6dsv16x_decoder_get_size_info(struct sensor_chan_spec chan_spec, s
 	case SENSOR_CHAN_DIE_TEMP:
 		*base_size = sizeof(struct sensor_q31_data);
 		*frame_size = sizeof(struct sensor_q31_sample_data);
+		return 0;
+	case SENSOR_CHAN_LSM6DSV16X_STEP_COUNTER:
+		*base_size = sizeof(struct lsm6dsv16x_sensor_step_counter_data);
+		*frame_size = sizeof(struct lsm6dsv16x_sensor_step_counter_sample_data);
 		return 0;
 	default:
 		return -ENOTSUP;
