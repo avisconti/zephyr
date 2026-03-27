@@ -130,7 +130,6 @@ static int ism6hg256x_accel_set_odr_raw(const struct device *dev, uint8_t odr)
 	const struct lsm6dsvxxx_config *cfg = dev->config;
 	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
 	struct lsm6dsvxxx_data *data = dev->data;
-	ism6hg256x_xl_mode_t xl_mode;
 
 	if (cfg->accel_hg_odr != ISM6HG256X_HG_XL_ODR_OFF) {
 
@@ -138,12 +137,7 @@ static int ism6hg256x_accel_set_odr_raw(const struct device *dev, uint8_t odr)
 			return -EIO;
 		}
 	} else {
-		if (ism6hg256x_xl_mode_get(ctx, &xl_mode) < 0) {
-			LOG_ERR("failed to get accelerometer mode");
-			return -EIO;
-		}
-
-		if (ism6hg256x_xl_setup(ctx, odr, xl_mode) < 0) {
+		if (ism6hg256x_xl_setup(ctx, odr, ISM6HG256X_XL_UNCHANGED_MD) < 0) {
 			return -EIO;
 		}
 	}
@@ -216,7 +210,6 @@ static int32_t ism6hg256x_accel_set_mode(const struct device *dev, int32_t mode)
 {
 	const struct lsm6dsvxxx_config *cfg = dev->config;
 	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
-	ism6hg256x_data_rate_t xl_odr;
 
 	switch (mode) {
 	case 0: /* High Performance */
@@ -244,12 +237,7 @@ static int32_t ism6hg256x_accel_set_mode(const struct device *dev, int32_t mode)
 		return -EIO;
 	}
 
-	if (ism6hg256x_xl_data_rate_get(ctx, &xl_odr) < 0) {
-		LOG_ERR("failed to get accelerometer odr");
-		return -EIO;
-	}
-
-	return ism6hg256x_xl_setup(ctx, xl_odr, mode);
+	return ism6hg256x_xl_setup(ctx, ISM6HG256X_ODR_UNCHANGED, mode);
 }
 
 static int32_t ism6hg256x_accel_get_fs(const struct device *dev, int32_t *range)
@@ -385,7 +373,7 @@ static int ism6hg256x_gyro_set_odr_raw(const struct device *dev, uint8_t odr)
 	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
 	struct lsm6dsvxxx_data *data = dev->data;
 
-	if (ism6hg256x_gy_data_rate_set(ctx, odr) < 0) {
+	if (ism6hg256x_gy_setup(ctx, odr, ISM6HG256X_GY_UNCHANGED_MD) < 0) {
 		return -EIO;
 	}
 
@@ -432,7 +420,7 @@ static int32_t ism6hg256x_gyro_set_mode(const struct device *dev, int32_t mode)
 		return -EIO;
 	}
 
-	return ism6hg256x_gy_mode_set(ctx, mode);
+	return ism6hg256x_gy_setup(ctx, ISM6HG256X_ODR_UNCHANGED, mode);
 }
 
 static int32_t ism6hg256x_gyro_get_fs(const struct device *dev, int32_t *range)
