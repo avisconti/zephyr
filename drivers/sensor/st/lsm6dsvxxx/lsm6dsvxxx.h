@@ -97,6 +97,12 @@ typedef uint32_t (*api_lsm6dsvxxx_from_f16_to_f32)(uint16_t val);
 typedef float (*api_lsm6dsvxxx_from_sflp_to_mg)(int16_t lsb);
 #endif /* CONFIG_LSM6DSVXXX_STREAM */
 
+#if defined(CONFIG_LSM6DSVXXX_SENSORHUB)
+typedef void (*api_lsm6dsvxxx_shub_enable)(const struct device *dev, uint8_t enable);
+typedef int32_t (*api_lsm6dsvxxx_shub_cfg_write)(const struct device *dev, uint8_t tgt_add,
+						 uint8_t tgt_subadd, uint8_t tgt_data);
+#endif /* CONFIG_LSM6DSVXXX_SENSORHUB */
+
 struct lsm6dsvxxx_chip_api {
 	api_lsm6dsvxxx_init_chip init_chip;
 #if defined(CONFIG_LSM6DSVXXX_TRIGGER)
@@ -123,6 +129,10 @@ struct lsm6dsvxxx_chip_api {
 	api_lsm6dsvxxx_from_f16_to_f32 from_f16_to_f32;
 	api_lsm6dsvxxx_from_sflp_to_mg from_sflp_to_mg;
 #endif /* CONFIG_LSM6DSVXXX_STREAM */
+#if defined(CONFIG_LSM6DSVXXX_SENSORHUB)
+	api_lsm6dsvxxx_shub_enable shub_enable;
+	api_lsm6dsvxxx_shub_cfg_write shub_cfg_write;
+#endif /* CONFIG_LSM6DSVXXX_SENSORHUB */
 };
 
 struct lsm6dsvxxx_config {
@@ -190,6 +200,8 @@ struct lsm6dsvxxx_ibi_payload {
 	uint8_t mlc_status;
 } __packed;
 
+#define LSM6DSVXXX_SHUB_MAX_NUM_TARGETS			3
+
 struct lsm6dsvxxx_data {
 	const struct device *dev;
 	int16_t acc[3];
@@ -199,6 +211,21 @@ struct lsm6dsvxxx_data {
 #if defined(CONFIG_LSM6DSVXXX_ENABLE_TEMP)
 	int16_t temp_sample;
 #endif
+
+#if defined(CONFIG_LSM6DSVXXX_SENSORHUB)
+	uint8_t ext_data[LSM6DSVXXX_SHUB_MAX_NUM_TARGETS][6];
+	uint16_t magn_gain;
+
+	struct hts221_data {
+		int16_t x0;
+		int16_t x1;
+		int16_t y0;
+		int16_t y1;
+	} hts221;
+	bool shub_inited;
+	uint8_t num_ext_dev;
+	uint8_t shub_ext[LSM6DSVXXX_SHUB_MAX_NUM_TARGETS];
+#endif /* CONFIG_LSM6DSVXXX_SENSORHUB */
 
 	uint8_t accel_freq;
 	uint8_t accel_fs;

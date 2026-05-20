@@ -50,4 +50,32 @@ config LSM6DSVXXX_ENABLE_TEMP
 	  Enable/disable temperature sensor
 
 
+config LSM6DSVXXX_SENSORHUB
+	bool "I2C sensorhub feature"
+	help
+	  Enable/disable internal sensorhub. You can enable
+	  a maximum of two external sensors (if more than two are enabled
+	  the system would enumerate only the first two found)
+
+if LSM6DSVXXX_SENSORHUB
+
+config LSM6DSVXXX_EXT_LIS2MDL
+	bool "LIS2MDL as external sensor"
+	default y
+
+config LSM6DSVXXX_EXT_LPS22HH
+	bool "LPS22HH as external sensor"
+
+config LSM6DSVXXX_EXT_HTS221
+	bool "HTS221 as external sensor"
+
+config LSM6DSVXXX_EXT_LPS22HB
+	bool "LPS22HB as external sensor"
+
+config LSM6DSVXXX_EXT_LPS22DF
+	bool "LPS22DF as external sensor"
+	default y
+
+endif # LSM6DSVXXX_SENSORHUB
+
 endif # LSM6DSVXXX

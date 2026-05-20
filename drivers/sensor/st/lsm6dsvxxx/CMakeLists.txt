@@ -7,6 +7,7 @@
 zephyr_library()
 
 zephyr_library_sources(lsm6dsvxxx.c)
+zephyr_library_sources_ifdef(CONFIG_LSM6DSVXXX_SENSORHUB  lsm6dsvxxx_shub.c)
 zephyr_library_sources_ifdef(CONFIG_SENSOR_ASYNC_API lsm6dsvxxx_decoder.c)
 zephyr_library_sources_ifdef(CONFIG_LSM6DSVXXX_STREAM lsm6dsvxxx_stream.c)
 zephyr_library_sources_ifdef(CONFIG_LSM6DSVXXX_TRIGGER  lsm6dsvxxx_trigger.c)

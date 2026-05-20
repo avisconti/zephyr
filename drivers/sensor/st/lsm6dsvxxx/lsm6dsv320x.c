@@ -810,6 +810,65 @@ static void lsm6dsv320x_config_drdy(const struct device *dev, struct trigger_con
 }
 #endif /* CONFIG_LSM6DSVXXX_STREAM */
 
+#if defined(CONFIG_LSM6DSVXXX_SENSORHUB)
+/* ST HAL skips this register, only supports it via the slower lsm6dsvxxx_sh_status_get() */
+static int32_t lsm6dsv320x_sh_status_mainpage_get(stmdev_ctx_t *ctx,
+						  lsm6dsv320x_status_controller_t *val)
+{
+	return lsm6dsv320x_read_reg(ctx, LSM6DSV320X_STATUS_CONTROLLER_MAINPAGE, (uint8_t *)val, 1);
+}
+
+static void lsm6dsv320x_shub_enable(const struct device *dev, uint8_t enable)
+{
+	const struct lsm6dsvxxx_config *cfg = dev->config;
+	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
+	struct lsm6dsvxxx_data *data = dev->data;
+
+	/* Enable Accel @26hz */
+	if (!data->accel_freq) {
+		uint8_t odr = (enable) ? 2 : 0;
+
+		if (lsm6dsv320x_xl_setup(ctx, odr, LSM6DSV320X_XL_UNCHANGED_MD) < 0) {
+			LOG_DBG("shub: failed to set XL sampling rate");
+			return;
+		}
+	}
+
+	if (enable) {
+		lsm6dsv320x_status_controller_t status;
+
+		/* Clear any pending status flags */
+		lsm6dsv320x_sh_status_mainpage_get(ctx, &status);
+	}
+
+	if (lsm6dsv320x_sh_controller_set(ctx, enable) < 0) {
+		LOG_DBG("shub: failed to set master on");
+		lsm6dsv320x_mem_bank_set(ctx, LSM6DSV320X_MAIN_MEM_BANK);
+		return;
+	}
+
+	if (!enable) {
+		/* wait 300us (necessary per AN5763 §7.2.1) */
+		k_busy_wait(300);
+	}
+}
+static int32_t lsm6dsv320x_sh_cfg_trgt_write(const struct device *dev,
+					     uint8_t tgt_add,
+					     uint8_t tgt_subadd,
+					     uint8_t tgt_data)
+{
+	const struct lsm6dsvxxx_config *cfg = dev->config;
+	stmdev_ctx_t *ctx = (stmdev_ctx_t *)&cfg->ctx;
+	lsm6dsv320x_sh_cfg_write_t trgt_cfg;
+
+	trgt_cfg.tgt0_add = tgt_add;
+	trgt_cfg.tgt0_subadd = tgt_subadd;
+	trgt_cfg.tgt0_data = tgt_data;
+
+	return lsm6dsv320x_sh_cfg_write(ctx, &trgt_cfg);
+}
+#endif /* CONFIG_LSM6DSVXXX_SENSORHUB */
+
 const struct lsm6dsvxxx_chip_api st_lsm6dsv320x_chip_api = {
 	.init_chip = lsm6dsv320x_init_chip,
 #if defined(CONFIG_LSM6DSVXXX_TRIGGER)
@@ -836,6 +895,10 @@ const struct lsm6dsvxxx_chip_api st_lsm6dsv320x_chip_api = {
 	.from_f16_to_f32 = lsm6dsv320x_from_f16_to_f32,
 	.from_sflp_to_mg = lsm6dsv320x_from_sflp_to_mg,
 #endif /* CONFIG_LSM6DSVXXX_STREAM */
+#if defined(CONFIG_LSM6DSVXXX_SENSORHUB)
+	.shub_enable = lsm6dsv320x_shub_enable,
+	.shub_cfg_write = lsm6dsv320x_sh_cfg_trgt_write,
+#endif /* CONFIG_LSM6DSVXXX_SENSORHUB */
 };
 
 /* bit shift for Accelerometer for a given range value */
